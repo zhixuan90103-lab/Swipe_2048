@@ -19,11 +19,16 @@ export type SwipeInputOptions = {
   isBlocked?: () => boolean;
   onMove: (dir: Dir) => void;
   onInvalid?: () => void;
+  /** 本按下已走棋且尚未抬手时进后台：撤回盘面 */
+  onBackgroundAbort?: () => void;
+  /** 正常抬手，本按下的走棋生效 */
+  onGestureCommit?: () => void;
 };
 
 export type SwipeHandle = {
   dispose: () => void;
   onMoveSettled: () => void;
+  isHolding: () => boolean;
 };
 
 function isChrome(el: EventTarget | null): boolean {
@@ -34,7 +39,8 @@ function isChrome(el: EventTarget | null): boolean {
 }
 
 export function attachSwipeInput(opts: SwipeInputOptions): SwipeHandle {
-  const { target, onMove, onInvalid, isBlocked } = opts;
+  const { target, onMove, onInvalid, isBlocked, onBackgroundAbort, onGestureCommit } = opts;
+  let firedThisHold = false;
   const feelOf = () => opts.getFeel?.() ?? FEEL_DEFAULT;
   let pid: number | null = null;
   let holding = false;
@@ -45,7 +51,17 @@ export function attachSwipeInput(opts: SwipeInputOptions): SwipeHandle {
   let lastDir: Dir | null = null;
   let axis: Axis | null = null;
   let retryTimer = 0;
+  let commitTimer = 0;
+  let lastFireAt = 0;
+  let ignoreFire = false;
   const vel = createVelocityWindow();
+  const BG_GUARD_MS = 800;
+
+  const homeBandPx = () => {
+    const raw = getComputedStyle(document.documentElement).getPropertyValue('--safe-bottom');
+    const n = Number.parseFloat(raw);
+    return (Number.isFinite(n) && n > 0 ? n : 34) + 8;
+  };
 
   const scalePx = (designPx: number) => {
     const w = target.getBoundingClientRect().width;
@@ -65,6 +81,9 @@ export function attachSwipeInput(opts: SwipeInputOptions): SwipeHandle {
       consumeSegment();
       if (d.fire !== null) {
         lastDir = d.fire;
+        if (ignoreFire) return;
+        firedThisHold = true;
+        lastFireAt = performance.now();
         onMove(d.fire);
       }
       return;
@@ -110,10 +129,14 @@ export function attachSwipeInput(opts: SwipeInputOptions): SwipeHandle {
     lastY = e.clientY;
     vel.reset(performance.now(), lastX, lastY);
     if (fresh || !holding) {
+      window.clearTimeout(commitTimer);
+      if (firedThisHold) onGestureCommit?.();
       segX = lastX;
       segY = lastY;
       lastDir = null;
       axis = null;
+      firedThisHold = false;
+      ignoreFire = lastY > window.innerHeight - homeBandPx();
     } else {
       consumeSegment();
     }
@@ -174,6 +197,11 @@ export function attachSwipeInput(opts: SwipeInputOptions): SwipeHandle {
     holding = false;
     pid = null;
     lastDir = null;
+    window.clearTimeout(commitTimer);
+    commitTimer = window.setTimeout(() => {
+      firedThisHold = false;
+      onGestureCommit?.();
+    }, BG_GUARD_MS);
   };
 
   const onUp = (e: PointerEvent) => endHold(e, false);
@@ -227,10 +255,40 @@ export function attachSwipeInput(opts: SwipeInputOptions): SwipeHandle {
   window.addEventListener('touchmove', onTouchGuard, peOpts);
   window.addEventListener('keydown', onKey, true);
 
+  const dropHoldForBackground = (force = false) => {
+    if (!force && document.visibilityState === 'visible') return;
+    const recent = firedThisHold && (holding || performance.now() - lastFireAt < BG_GUARD_MS);
+    holding = false;
+    pid = null;
+    lastDir = null;
+    firedThisHold = false;
+    window.clearTimeout(retryTimer);
+    window.clearTimeout(commitTimer);
+    if (recent) onBackgroundAbort?.();
+    else onGestureCommit?.();
+  };
+
+  const onVis = () => {
+    if (document.visibilityState === 'hidden') dropHoldForBackground();
+  };
+
+  const onPageHide = () => dropHoldForBackground(true);
+  const onBlur = () => dropHoldForBackground(true);
+  document.addEventListener('visibilitychange', onVis);
+  window.addEventListener('pagehide', onPageHide);
+  window.addEventListener('blur', onBlur);
+  document.addEventListener('freeze', onPageHide);
+
   return {
     onMoveSettled,
+    isHolding: () => holding,
     dispose: () => {
       window.clearTimeout(retryTimer);
+      window.clearTimeout(commitTimer);
+      document.removeEventListener('visibilitychange', onVis);
+      window.removeEventListener('pagehide', onPageHide);
+      window.removeEventListener('blur', onBlur);
+      document.removeEventListener('freeze', onPageHide);
       window.removeEventListener('pointerdown', onDown, peOpts);
       window.removeEventListener('pointermove', onMovePtr, peOpts);
       window.removeEventListener('pointerup', onUp, peOpts);

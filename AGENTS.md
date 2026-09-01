@@ -29,6 +29,7 @@
 | 四向手势状态机 | `docs/SWIPE-DESIGN.md` |
 | 文档索引 | `docs/README.md` |
 | 现行实现 | `docs/IMPLEMENTATION.md` |
+| 方块运动 | `docs/MOTION.md` |
 | 最佳手感检索 | `docs/SWIPE-RESEARCH-2026-09.md` |
 | 原版 UI 实测 | `docs/UI-ORIGINAL.md` |
 

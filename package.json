@@ -12,7 +12,7 @@
     "cap:open": "npx cap open ios",
     "ios": "npm run cap:sync && npm run cap:open",
     "ios:bootstrap": "node scripts/bootstrap-ios.mjs",
-    "test": "npx --yes tsx --test src/game/swipeSegment.test.ts src/game/swipeVelocity.test.ts"
+    "test": "npx --yes tsx --test src/game/swipeSegment.test.ts src/game/swipeVelocity.test.ts src/game/motion.test.ts"
   },
   "dependencies": {
     "@capacitor/core": "^8.1.0",

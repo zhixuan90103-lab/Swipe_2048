@@ -79,6 +79,10 @@ export function startGame2048(opts: {
   let best = Number(localStorage.getItem(BEST_KEY) || '0');
   let lockTimer = 0;
   let swipe: SwipeHandle;
+  let pending:
+    | { mode: 'merge'; state: BoardState; best: number }
+    | { mode: 'solo'; solo: SoloState }
+    | null = null;
 
   const titleEl = uiRoot.querySelector('#g-title') as HTMLElement;
   const scoresEl = uiRoot.querySelector('#g-scores') as HTMLElement;
@@ -161,6 +165,7 @@ export function startGame2048(opts: {
         nudgeBoard(boardEl, feel.nudgeMs);
         return;
       }
+      if (swipe?.isHolding() && !pending) pending = { mode: 'solo', solo };
       solo = next;
       busy = true;
       render(true);
@@ -177,6 +182,9 @@ export function startGame2048(opts: {
     if (!moved) {
       nudgeBoard(boardEl, feel.nudgeMs);
       return;
+    }
+    if (swipe?.isHolding() && !pending) {
+      pending = { mode: 'merge', state, best };
     }
     state = next;
     busy = true;
@@ -234,6 +242,22 @@ export function startGame2048(opts: {
     onMove: tryDir,
     onInvalid: () => {
       if (!busy) nudgeBoard(boardEl, feel.nudgeMs);
+    },
+    onGestureCommit: () => {
+      pending = null;
+    },
+    onBackgroundAbort: () => {
+      if (!pending) return;
+      window.clearTimeout(lockTimer);
+      busy = false;
+      if (pending.mode === 'solo') solo = pending.solo;
+      else {
+        state = pending.state;
+        best = pending.best;
+        localStorage.setItem(BEST_KEY, String(best));
+      }
+      pending = null;
+      render(false);
     },
   });
 

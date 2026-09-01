@@ -94,6 +94,8 @@
 | K11 | `isBlocked` 外置（`busy || (merge && state.over)`）。**`state.won && !state.over` 不 blocked**（可继续玩）。Blocked **不是** 状态机状态。blocked 时：**禁止调用判定**；只更新 `lastX/Y`；不 lock、不 relock、不 consume、不 fire、不 invalid。抬手时若 blocked：不 fire/invalid，直接 Idle。`onMoveSettled` 仍 `consumeSegment`。`blocked` **不进入** `SegmentInput`。 |
 | K12 | 键盘（方向键 / WASD）旁路判定层，直接 `onMove`；仍尊重 `isBlocked`；`e.repeat` 忽略。 |
 | K13 | **抬手 invalid 谓词（现 `endHold`，钉死）**：非 cancel、非 blocked 时：若 `lastDir===null && slop≤dist<commit`（`dist=max(|dx|,|dy|)`）→ `onInvalid`，**不**再跑判定。否则与 move 一样调用判定（可 lock/relock/fire/同向 consume）。因此 **45° 长滑 `dist≥commit` 抬手：不 invalid、判定 no-op、不 nudge**。 |
+| K14 | **进后台撤回最近指针走棋**：系统上滑常先 `pointerup` 再 hidden。抬手后 **800ms** 内 hidden/pagehide/blur/freeze 仍撤回本按下第一火前的盘面。新 `pointerdown` 或 800ms 到点才提交。键盘不走这条。`pointercancel` 前台仍 K5。 |
+| K15 | **Home 条**：原生 `preferredScreenEdgesDeferringSystemGestures = .bottom`（第一次滑给游戏，回桌面需再滑）。JS：按下点在底安全区带内则本按下不 `onMove`。不与 Home 条自动隐藏同开。 |
 
 ---
 

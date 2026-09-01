@@ -5,6 +5,7 @@
 | 文件 | 角色 |
 |------|------|
 | **IMPLEMENTATION.md** | **产品与实现现状**（玩法、两套手感、UI、默认值、文件表） |
+| **MOTION.md** | **方块怎么动**（速度模型、合并/出现、字号、对象池） |
 | **SWIPE-DESIGN.md** | 手势状态机（判定纯函数 + 事件层）。手感2 扩展见文首「现行产品」 |
 | **SWIPE-RESEARCH-2026-09.md** | 检索计划与结论：为何两套手感、速度怎么测 |
 | **SWIPE-SOURCES.md** | A/B/C/D 来源分级与 URL |
@@ -16,4 +17,4 @@
 | ENTRYPOINTS.md | 入口链 |
 | UI-ORIGINAL.md | 原版截图实测：尺寸/位置/颜色 |
 
-**规范优先级：** 手势判定以 `SWIPE-DESIGN.md` 为准；默认值、模式绑定、UI、手感2 以 `IMPLEMENTATION.md` 为准。代码与文档冲突时改文档或改代码，不要并列两套默认。
+**规范优先级：** 手势判定以 `SWIPE-DESIGN.md` 为准；方块运动以 `MOTION.md` 为准；默认值、模式绑定、UI 以 `IMPLEMENTATION.md` 为准。代码与文档冲突时改文档或改代码，不要并列两套默认。

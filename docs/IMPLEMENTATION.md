@@ -2,7 +2,7 @@
 
 日期：2026-09-01（设置入口、原版顶栏对齐、`boardY` 20 后修订）。
 
-手势状态机细节：`docs/SWIPE-DESIGN.md`。检索结论：`docs/SWIPE-RESEARCH-2026-09.md`。来源分级：`docs/SWIPE-SOURCES.md`。
+手势：`docs/SWIPE-DESIGN.md`。方块运动：`docs/MOTION.md`。
 
 ---
 
@@ -59,8 +59,10 @@ UI 对齐中文原版 2048 画面（`docs/UI-ORIGINAL.md`）。
 | `src/game/game2048.ts` | 模式、HUD、busy、手感绑定 |
 | `src/game/board.ts` | `SIZE=4` 合并 |
 | `src/game/solo.ts` | 单块 |
-| `src/game/view.ts` | 棋盘绘制（随 `boardScale`） |
-| `src/style.css` | 原版风布局 |
+| `src/game/motion.ts` | 滑移/合并/字号纯函数（`docs/MOTION.md`） |
+| `src/game/tilePool.ts` | 棋盘 DOM 池 |
+| `src/game/view.ts` | 把状态画到池里的块 |
+| `src/style.css` | 原版风布局 + appear/pop keyframes |
 
 ---
 
@@ -79,9 +81,10 @@ UI 对齐中文原版 2048 画面（`docs/UI-ORIGINAL.md`）。
 | speedPxS | 400 | 手感1 不用 |
 | axisRatio | 1.55 | 主轴/副轴 |
 | tileMoveMs | 60 | 每格 ms（仅单块） |
-| slideMs | **75** ms/格 | 2048 按格计时，远的晚到 |
-| appearMs | 200（手感2 **230**） | 新块出现 |
-| mergePopMs | 120（手感2 **180**） | 合并到位轻弹 |
+| slideMs | **75** | 2048 每格滑移 |
+| slideEase | **soft** | 更柔 / 先快后慢 / 匀速 |
+| appearMs | 200（手感2 **250**） | 新块出现 |
+| mergePopMs | 120（手感2 **200**） | 合并弹 |
 | inputLockMs | 10 | 动画后再锁输入 |
 | rearmMs | 10 | 锁开后再等（可 0） |
 | nudgePx / nudgeMs | 1 / 50 | 无效抖 |
@@ -102,21 +105,14 @@ UI 对齐中文原版 2048 画面（`docs/UI-ORIGINAL.md`）。
 - 布局按 `docs/UI-ORIGINAL.md`：标题 **104²**，分数 **93×92**，按钮 **93×28** `#ed995b` 与分数盒左右对齐。  
 - **点黄块** ↔ 2048 / 单块（字变为「2048」或「单块」）。滑动手势忽略 `#g-title`。  
 - **菜单** = 新局。  
-- **设置** = 打开/关闭设置表：出手手感、棋盘位置/大小；2048 **不出现**「每格用时」（滑移已写死 100ms）。  
+- **设置** = 打开/关闭设置表。2048：每格滑移、曲线、出现、合并弹。单块：每格用时。运动模型见 `MOTION.md`。  
 - 说明：合并这些数字以得到2048方块！  
 - 棋盘格 72、缝 8 × `boardScale`（默认 1.09）；再加 `boardY`（默认 20 往下）。  
 - 结束遮罩盖在棋盘上；出现时 **800ms fade、delay 1200ms**（等滑移+pop 演完）。
 
-## 5.2 方块动画（对齐 Cirulli）
+## 5.2 方块动画
 
-| | 2048 | 单块 |
-|--|--|--|
-| 滑移 | **格数 × `slideMs`（默认 75ms/格）**，更柔 ease-out；远的晚到 | 格数 × `tileMoveMs`，**linear** |
-| 新块 | 滑完立刻，`0.4 → 1`，时长 **`appearMs`（2048 默认 230）** | 同左 |
-| 合并 | 新数字跟着滑；`1 → 1.1 → 1`，**`mergePopMs`（2048 默认 180）**，峰值对准滑移约 60% | — |
-| 分数 | `+N` 上飘 600ms ease-in | 无 |
-
-`tileMoveMs` 只在单块设置里出现。
+规范全文：[MOTION.md](./MOTION.md)。2048 默认：75ms/格、更柔、出现 250ms、合并弹 200ms、峰值 1.1。
 
 ## 5.1 近期相对上次规范的改动
 
@@ -140,6 +136,7 @@ UI 对齐中文原版 2048 画面（`docs/UI-ORIGINAL.md`）。
 | 长按斜向反轴 | **出手时** consume，不要等 settle |
 | cancel 后失灵 | holding 保持；新 pointer 再 grab |
 | 按住动画飞 | settle consume + reflow |
+| 滑去后台也走了棋 | 原生 defer 底边 + 底缘按下不走棋 + 800ms 内进后台撤回（K14/K15） |
 | 玩家口述当规范 | 口述是现象；像素只引 A/B |
 
 ---

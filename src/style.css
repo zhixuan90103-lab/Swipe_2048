@@ -464,7 +464,7 @@ button:active {
   position: absolute;
   top: 0;
   left: 0;
-  font-size: var(--g-tile-font, 32px);
+  font-size: var(--g-tile-font, 37px);
   font-weight: 700;
   line-height: 1;
   will-change: transform;
@@ -482,7 +482,7 @@ button:active {
 }
 
 .g-tile-new .g-tile-inner {
-  animation: g-appear var(--g-appear-ms, 200ms) ease both;
+  animation: g-appear var(--g-appear-ms, 250ms) ease both;
 }
 
 .g-tile-merge {
@@ -490,7 +490,7 @@ button:active {
 }
 
 .g-tile-merge .g-tile-inner {
-  animation: g-pop var(--g-pop-ms, 120ms) ease-in-out both;
+  animation: g-pop var(--g-pop-ms, 200ms) ease-in-out both;
 }
 
 .g-board.g-nudge {
