@@ -494,7 +494,7 @@ button:active {
 }
 
 .g-board.g-nudge {
-  animation: g-nudge var(--g-nudge-ms, 140ms) ease;
+  animation: g-nudge var(--g-nudge-ms, 140ms) cubic-bezier(0.22, 0.61, 0.36, 1);
 }
 
 .g-overlay {
@@ -577,15 +577,26 @@ button:active {
 }
 
 @keyframes g-nudge {
-  0%,
+  0% {
+    transform: translate(0, 0);
+  }
+  22% {
+    transform: translate(var(--g-nudge-dx, 0px), var(--g-nudge-dy, 0px));
+  }
+  48% {
+    transform: translate(
+      calc(var(--g-nudge-dx, 0px) * -0.22),
+      calc(var(--g-nudge-dy, 0px) * -0.22)
+    );
+  }
+  72% {
+    transform: translate(
+      calc(var(--g-nudge-dx, 0px) * 0.08),
+      calc(var(--g-nudge-dy, 0px) * 0.08)
+    );
+  }
   100% {
-    transform: translateX(0);
-  }
-  25% {
-    transform: translateX(calc(-1 * var(--g-nudge-px, 4px)));
-  }
-  75% {
-    transform: translateX(var(--g-nudge-px, 4px));
+    transform: translate(0, 0);
   }
 }
 

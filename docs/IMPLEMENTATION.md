@@ -87,10 +87,10 @@ UI 对齐中文原版 2048 画面（`docs/UI-ORIGINAL.md`）。
 | mergePopMs | 120（手感2 **200**） | 合并弹 |
 | inputLockMs | 10 | 动画后再锁输入 |
 | rearmMs | 10 | 锁开后再等（可 0） |
-| nudgePx / nudgeMs | 1 / 50 | 无效抖 |
+| nudgePx / nudgeMs | **5 / 350** | 沿滑动方向回弹 |
 | sameDirRepeat | false | 同向连走 |
-| boardY | 20 | 棋盘上下（正下负上） |
-| boardScale | 1.09 | 棋盘整体缩放（1=328px，1.09≈358 宽） |
+| boardY | **0** | 棋盘上下（正下负上） |
+| boardScale | **1.1** | 棋盘整体缩放 |
 
 **手感2**（2048 默认）在手感1 上改为：`scheme 2`，`commitPx 30`，`speedPxS 200`，`tileMoveMs 70`，`slideMs 75`，`appearMs 250`，`mergePopMs 200`，`inputLockMs 50`，`rearmMs 0`。
 
@@ -107,7 +107,7 @@ UI 对齐中文原版 2048 画面（`docs/UI-ORIGINAL.md`）。
 - **菜单** = 新局。  
 - **设置** = 打开/关闭设置表。2048：每格滑移、曲线、出现、合并弹。单块：每格用时。运动模型见 `MOTION.md`。  
 - 说明：合并这些数字以得到2048方块！  
-- 棋盘格 72、缝 8 × `boardScale`（默认 1.09）；再加 `boardY`（默认 20 往下）。  
+- 棋盘格 72、缝 8 × `boardScale`（默认 **1.1**）；`boardY` 默认 **0**。  
 - 结束遮罩盖在棋盘上；出现时 **800ms fade、delay 1200ms**（等滑移+pop 演完）。
 
 ## 5.2 方块动画
@@ -122,8 +122,8 @@ UI 对齐中文原版 2048 画面（`docs/UI-ORIGINAL.md`）。
 | 手感入口 | 右上「设置」；无独立手感按钮 |
 | 顶栏尺寸 | 对齐原版实测（104 / 93×92 / 93×28） |
 | 按钮色 | `#ed995b` |
-| `boardY` | 默认 **20** |
-| `boardScale` | 默认 **1.09** |
+| `boardY` | 默认 **0** |
+| `boardScale` | 默认 **1.1** |
 
 ---
 

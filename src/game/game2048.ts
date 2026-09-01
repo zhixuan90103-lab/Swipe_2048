@@ -162,7 +162,7 @@ export function startGame2048(opts: {
     if (mode === 'solo') {
       const { state: next, moved } = moveSolo(solo, dir);
       if (!moved) {
-        nudgeBoard(boardEl, feel.nudgeMs);
+        nudgeBoard(boardEl, feel.nudgeMs, dir);
         return;
       }
       if (swipe?.isHolding() && !pending) pending = { mode: 'solo', solo };
@@ -180,7 +180,7 @@ export function startGame2048(opts: {
     if (state.over) return;
     const { state: next, moved, scoreDelta } = applyMove(state, dir);
     if (!moved) {
-      nudgeBoard(boardEl, feel.nudgeMs);
+      nudgeBoard(boardEl, feel.nudgeMs, dir);
       return;
     }
     if (swipe?.isHolding() && !pending) {
@@ -240,8 +240,8 @@ export function startGame2048(opts: {
     getFeel: () => feel,
     isBlocked: () => busy || (mode === 'merge' && state.over),
     onMove: tryDir,
-    onInvalid: () => {
-      if (!busy) nudgeBoard(boardEl, feel.nudgeMs);
+    onInvalid: (dir) => {
+      if (!busy) nudgeBoard(boardEl, feel.nudgeMs, dir);
     },
     onGestureCommit: () => {
       pending = null;

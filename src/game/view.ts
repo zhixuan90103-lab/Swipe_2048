@@ -1,4 +1,4 @@
-import type { BoardState, Tile } from './board';
+import type { BoardState, Dir, Tile } from './board';
 import {
   CELL,
   boardTravelMs,
@@ -102,7 +102,12 @@ export function paintBoard(
   recycleIdle(pool);
 }
 
-export function nudgeBoard(host: HTMLElement, ms = 140): void {
+/** 沿 dir 顶一下再弹回（左只有 X，上只有 Y）。 */
+export function nudgeBoard(host: HTMLElement, ms = 140, dir: Dir = 1): void {
+  const dx = dir === 1 ? 1 : dir === 3 ? -1 : 0;
+  const dy = dir === 2 ? 1 : dir === 0 ? -1 : 0;
+  host.style.setProperty('--g-nudge-dx', `calc(${dx} * var(--g-nudge-px, 5px))`);
+  host.style.setProperty('--g-nudge-dy', `calc(${dy} * var(--g-nudge-px, 5px))`);
   host.classList.remove('g-nudge');
   void host.offsetWidth;
   host.classList.add('g-nudge');

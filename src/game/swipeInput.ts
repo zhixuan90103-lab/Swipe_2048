@@ -18,7 +18,7 @@ export type SwipeInputOptions = {
   getFeel?: () => Feel;
   isBlocked?: () => boolean;
   onMove: (dir: Dir) => void;
-  onInvalid?: () => void;
+  onInvalid?: (dir: Dir) => void;
   /** 本按下已走棋且尚未抬手时进后台：撤回盘面 */
   onBackgroundAbort?: () => void;
   /** 正常抬手，本按下的走棋生效 */
@@ -189,7 +189,11 @@ export function attachSwipeInput(opts: SwipeInputOptions): SwipeHandle {
       const commit = scalePx(feel.commitPx);
       const dist = Math.max(Math.abs(lastX - segX), Math.abs(lastY - segY));
       if (shouldInvalidOnLift({ lastDir, dist, slop, commit })) {
-        onInvalid?.();
+        const dx = lastX - segX;
+        const dy = lastY - segY;
+        const dir: Dir =
+          Math.abs(dx) >= Math.abs(dy) ? (dx >= 0 ? 1 : 3) : dy >= 0 ? 2 : 0;
+        onInvalid?.(dir);
       } else {
         tryCommit();
       }

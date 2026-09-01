@@ -66,11 +66,11 @@ export const FEEL_DEFAULT: Feel = {
   mergePopMs: 120,
   inputLockMs: 10,
   rearmMs: 10,
-  nudgePx: 1,
-  nudgeMs: 50,
+  nudgePx: 5,
+  nudgeMs: 350,
   sameDirRepeat: false,
-  boardY: 20,
-  boardScale: 1.09,
+  boardY: 0,
+  boardScale: 1.1,
 };
 
 /** 手感2：慢滑再远也不走；够快时约半格量级可出手 */
@@ -218,8 +218,8 @@ export const FEEL_FIELDS: {
   },
   {
     key: 'nudgePx',
-    label: '无效抖动幅度',
-    why: '方向无效或太斜时，棋盘左右抖的距离。',
+    label: '无效回弹幅度',
+    why: '不能走时棋盘沿该次滑动方向顶出去再弹回的距离。左滑只有左右，没有上下晃。',
     kind: 'range',
     min: 0,
     max: 16,
@@ -228,8 +228,8 @@ export const FEEL_FIELDS: {
   },
   {
     key: 'nudgeMs',
-    label: '无效抖动时长',
-    why: '上述抖动播放多久。',
+    label: '无效回弹时长',
+    why: '沿滑动方向回弹整段时间。前半快、后半慢，幅度先大后小。',
     kind: 'range',
     min: 40,
     max: 400,
