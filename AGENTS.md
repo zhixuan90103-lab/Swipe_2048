@@ -26,6 +26,11 @@
 | 音效方案（未实现） | `docs/AUDIO.md` |
 | 同手势调研 | `docs/SWIPE-GESTURE.md` |
 | 手势有效来源 | `docs/SWIPE-SOURCES.md` |
+| 四向手势状态机 | `docs/SWIPE-DESIGN.md` |
+| 文档索引 | `docs/README.md` |
+| 现行实现 | `docs/IMPLEMENTATION.md` |
+| 最佳手感检索 | `docs/SWIPE-RESEARCH-2026-09.md` |
+| 原版 UI 实测 | `docs/UI-ORIGINAL.md` |
 
 ## DOM（勿拆）
 
@@ -70,6 +75,6 @@ npm run ios
 
 ## 刻意不做
 
-- 具体游戏玩法（demo 立方体可删）  
 - Android（可后加）  
 - WebGL 静默回退  
+- 系统 UISwipe；用速度/轨迹插值 **判方向**  

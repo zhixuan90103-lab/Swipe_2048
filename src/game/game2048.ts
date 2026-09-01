@@ -1,9 +1,15 @@
 import { applyMove, newGame, type BoardState, type Dir } from './board';
-import { FEEL_DEFAULT, type Feel } from './feel';
+import { applyFeelCss, loadFeelFor, saveFeelFor, type Feel } from './feel';
 import { mountFeelPanel } from './feelPanel';
 import { moveSolo, newSolo, soloAsBoard, type SoloState } from './solo';
 import { attachSwipeInput, type SwipeHandle } from './swipeInput';
-import { BOARD_PX, maxTravelCells, nudgeBoard, paintBoard } from './view';
+import {
+  MERGE_SLIDE_EASE,
+  nudgeBoard,
+  paintBoard,
+  slideDurationMs,
+  type PaintAnim,
+} from './view';
 
 type Mode = 'merge' | 'solo';
 
@@ -21,27 +27,33 @@ export function startGame2048(opts: {
 
   uiRoot.innerHTML = `
     <div class="g2048">
-      <header class="g-bar">
-        <div>
-          <h1 id="g-title">2048</h1>
-          <div class="g-modes" id="g-modes">
-            <button type="button" data-mode="merge" class="on">2048</button>
-            <button type="button" data-mode="solo">单块</button>
+      <header class="g-heading">
+        <div class="g-logo" id="g-title">2048</div>
+        <div class="g-heading-right">
+          <div class="g-scores" id="g-scores">
+            <div class="g-score">
+              <span>分数</span>
+              <strong id="g-score">0</strong>
+            </div>
+            <div class="g-score">
+              <span>历史最高成绩</span>
+              <strong id="g-best">0</strong>
+            </div>
+          </div>
+          <div class="g-actions">
+            <button type="button" id="g-new">菜单</button>
+            <button type="button" id="g-settings">设置</button>
           </div>
         </div>
-        <div class="g-scores" id="g-scores">
-          <div class="g-score">分 <strong id="g-score">0</strong></div>
-          <div class="g-score">佳 <strong id="g-best">0</strong></div>
-        </div>
-        <button type="button" id="g-new">新局</button>
       </header>
-      <div class="g-board" id="g-board" style="width:${BOARD_PX}px;height:${BOARD_PX}px">
+      <p class="g-intro" id="g-intro">合并这些数字以得到2048方块！</p>
+      <div class="g-board" id="g-board">
         <div class="g-grid"></div>
         <div class="g-tiles"></div>
-      </div>
-      <div class="g-overlay hidden" id="g-overlay">
-        <p id="g-over-msg">没有可走的步了</p>
-        <button type="button" id="g-retry">再来</button>
+        <div class="g-overlay hidden" id="g-overlay">
+          <p id="g-over-msg">没有可走的步了</p>
+          <button type="button" id="g-retry">再来</button>
+        </div>
       </div>
     </div>
   `;
@@ -63,36 +75,68 @@ export function startGame2048(opts: {
   let state: BoardState = newGame();
   let solo: SoloState = newSolo();
   let busy = false;
-  let feel: Feel = FEEL_DEFAULT;
+  let feel: Feel = loadFeelFor('merge');
   let best = Number(localStorage.getItem(BEST_KEY) || '0');
   let lockTimer = 0;
   let swipe: SwipeHandle;
 
   const titleEl = uiRoot.querySelector('#g-title') as HTMLElement;
   const scoresEl = uiRoot.querySelector('#g-scores') as HTMLElement;
+  const introEl = uiRoot.querySelector('#g-intro') as HTMLElement;
+  const settingsBtn = uiRoot.querySelector('#g-settings') as HTMLElement;
 
   const hud = () => {
-    titleEl.textContent = mode === 'solo' ? '单块' : '2048';
-    scoresEl.style.display = mode === 'solo' ? 'none' : 'flex';
+    const solo = mode === 'solo';
+    titleEl.textContent = solo ? '单块' : '2048';
+    titleEl.classList.toggle('g-logo-solo', solo);
+    scoresEl.style.visibility = solo ? 'hidden' : 'visible';
+    introEl.textContent = solo
+      ? '把方块滑到墙，一次滑到底。'
+      : '合并这些数字以得到2048方块！';
     scoreEl.textContent = String(state.score);
     if (state.score > best) {
       best = state.score;
       localStorage.setItem(BEST_KEY, String(best));
     }
     bestEl.textContent = String(best);
-    overlay.classList.toggle('hidden', !state.over && !state.won);
-    if (state.over) overMsg.textContent = '没有可走的步了';
-    else if (state.won) overMsg.textContent = '到 2048 了，还可继续';
-    if (state.won && !state.over) overlay.classList.add('hidden');
+    if (state.over) {
+      overMsg.textContent = '没有可走的步了';
+      overlay.classList.remove('hidden');
+      overlay.classList.add('g-overlay-in');
+    } else if (state.won) {
+      overMsg.textContent = '到 2048 了，还可继续';
+      overlay.classList.add('hidden');
+      overlay.classList.remove('g-overlay-in');
+    } else {
+      overlay.classList.add('hidden');
+      overlay.classList.remove('g-overlay-in');
+    }
+  };
+
+  const paintAnim = (): PaintAnim =>
+    mode === 'solo'
+      ? { durationMs: feel.tileMoveMs, easing: 'linear', perCell: true }
+      : {
+          durationMs: feel.slideMs,
+          easing: MERGE_SLIDE_EASE,
+          perCell: true,
+          mergePopMs: feel.mergePopMs,
+        };
+
+  const floatScore = (delta: number) => {
+    if (delta <= 0) return;
+    const box = scoreEl.parentElement;
+    if (!box) return;
+    const el = document.createElement('span');
+    el.className = 'g-score-add';
+    el.textContent = `+${delta}`;
+    box.appendChild(el);
+    el.addEventListener('animationend', () => el.remove(), { once: true });
   };
 
   const render = (animate: boolean) => {
-    paintBoard(
-      boardEl,
-      mode === 'solo' ? soloAsBoard(solo) : state,
-      animate,
-      feel.tileMoveMs,
-    );
+    const board = mode === 'solo' ? soloAsBoard(solo) : state;
+    paintBoard(boardEl, board, animate, paintAnim(), feel.boardScale);
     hud();
   };
 
@@ -107,7 +151,7 @@ export function startGame2048(opts: {
       solo = next;
       busy = true;
       render(true);
-      const travel = maxTravelCells(soloAsBoard(solo)) * feel.tileMoveMs;
+      const travel = slideDurationMs(soloAsBoard(solo), paintAnim());
       window.clearTimeout(lockTimer);
       lockTimer = window.setTimeout(() => {
         busy = false;
@@ -116,7 +160,7 @@ export function startGame2048(opts: {
       return;
     }
     if (state.over) return;
-    const { state: next, moved } = applyMove(state, dir);
+    const { state: next, moved, scoreDelta } = applyMove(state, dir);
     if (!moved) {
       nudgeBoard(boardEl, feel.nudgeMs);
       return;
@@ -124,12 +168,11 @@ export function startGame2048(opts: {
     state = next;
     busy = true;
     render(true);
-    const travel = maxTravelCells(state) * feel.tileMoveMs;
+    floatScore(scoreDelta);
+    const travel = slideDurationMs(state, paintAnim());
     window.clearTimeout(lockTimer);
     lockTimer = window.setTimeout(() => {
       busy = false;
-      hud();
-      if (state.over) overlay.classList.remove('hidden');
       swipe.onMoveSettled();
     }, travel + feel.inputLockMs);
   };
@@ -143,27 +186,33 @@ export function startGame2048(opts: {
   };
 
   const setMode = (next: Mode) => {
+    if (next === mode) return;
+    saveFeelFor(mode, feel);
     mode = next;
-    uiRoot.querySelectorAll('[data-mode]').forEach((b) => {
-      b.classList.toggle('on', (b as HTMLElement).dataset.mode === mode);
-    });
+    panel.set(loadFeelFor(mode), mode);
     reset();
   };
 
-  uiRoot.querySelector('#g-modes')!.addEventListener('click', (e) => {
-    const btn = (e.target as HTMLElement).closest('[data-mode]') as HTMLElement | null;
-    if (!btn?.dataset.mode) return;
-    setMode(btn.dataset.mode as Mode);
-  });
+  titleEl.addEventListener('click', () => setMode(mode === 'solo' ? 'merge' : 'solo'));
 
   uiRoot.querySelector('#g-new')!.addEventListener('click', reset);
   uiRoot.querySelector('#g-retry')!.addEventListener('click', reset);
 
+  applyFeelCss(feel);
   render(false);
 
-  const panel = mountFeelPanel(uiRoot, (next) => {
-    feel = next;
-  });
+  const panel = mountFeelPanel(
+    uiRoot,
+    (next) => {
+      feel = next;
+      saveFeelFor(mode, next);
+      if (!busy) render(false);
+    },
+    feel,
+    mode,
+  );
+
+  settingsBtn.addEventListener('click', () => panel.toggle());
 
   swipe = attachSwipeInput({
     target: stage,

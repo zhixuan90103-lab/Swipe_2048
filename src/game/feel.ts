@@ -1,12 +1,24 @@
+export type FeelScheme = 1 | 2;
+
 export type Feel = {
+  /** 1 = 距离出手（当前）；2 = 速度门槛 + 短距 */
+  scheme: FeelScheme;
   /** 按下后位移小过此值（设计 px）→ 当点按，不算滑 */
   slopPx: number;
   /** 主方向位移达到此值（设计 px）才出手走棋 */
   commitPx: number;
+  /** 手感2：瞬时速度达到此值（设计 px/秒）才允许出手 */
+  speedPxS: number;
   /** 主轴长度必须 ≥ 副轴 × 此倍数，否则太斜、不出手 */
   axisRatio: number;
-  /** 穿过 1 格所用时间（毫秒）。走几格就 × 几，速度不变 */
+  /** 单块：穿过 1 格的毫秒 */
   tileMoveMs: number;
+  /** 2048：穿过 1 格的毫秒。走得远越晚到 */
+  slideMs: number;
+  /** 新块从小到大的时长（毫秒），滑移结束后开始 */
+  appearMs: number;
+  /** 2048 合并到位后轻微放大收回的时长（毫秒） */
+  mergePopMs: number;
   /** 走棋后多久内不再接受下一手（毫秒）。只改输入锁 */
   inputLockMs: number;
   /** 锁解开后，按住转向再出手还要再等多少毫秒 */
@@ -17,21 +29,49 @@ export type Feel = {
   nudgeMs: number;
   /** 按住不抬、同一方向继续拖，是否再走一步 */
   sameDirRepeat: boolean;
+  /** 棋盘相对当前布局再往下移多少（设计 px，负数为上） */
+  boardY: number;
+  /** 棋盘整体缩放（1 = 原尺寸 328px） */
+  boardScale: number;
 };
 
 export const FEEL_DEFAULT: Feel = {
+  scheme: 1,
   slopPx: 10,
-  commitPx: 36,
-  axisRatio: 1.25,
-  tileMoveMs: 100,
-  inputLockMs: 160,
-  rearmMs: 20,
-  nudgePx: 4,
-  nudgeMs: 140,
+  commitPx: 16,
+  speedPxS: 400,
+  axisRatio: 1.55,
+  tileMoveMs: 60,
+  slideMs: 80,
+  appearMs: 200,
+  mergePopMs: 120,
+  inputLockMs: 10,
+  rearmMs: 10,
+  nudgePx: 1,
+  nudgeMs: 50,
   sameDirRepeat: false,
+  boardY: 20,
+  boardScale: 1.09,
+};
+
+/** 手感2：慢滑再远也不走；够快时约半格量级可出手 */
+export const FEEL2_DEFAULT: Feel = {
+  ...FEEL_DEFAULT,
+  scheme: 2,
+  commitPx: 30,
+  speedPxS: 200,
+  tileMoveMs: 70,
+  slideMs: 80,
+  appearMs: 230,
+  mergePopMs: 180,
+  inputLockMs: 50,
+  rearmMs: 0,
 };
 
 const KEY = 'swipe2048.feel';
+const KEY_BY_MODE = 'swipe2048.feel.byMode';
+
+export type FeelMode = 'merge' | 'solo';
 
 export const FEEL_FIELDS: {
   key: keyof Feel;
@@ -42,6 +82,9 @@ export const FEEL_FIELDS: {
   max?: number;
   step?: number;
   unit?: string;
+  schemes?: FeelScheme[];
+  /** 不写则两模式都显示 */
+  modes?: FeelMode[];
 }[] = [
   {
     key: 'slopPx',
@@ -56,7 +99,7 @@ export const FEEL_FIELDS: {
   {
     key: 'commitPx',
     label: '出手距离',
-    why: '主方向累计位移达到此值才走棋。不影响方向怎么判。',
+    why: '手感1：沿已锁轴走到此值走棋。手感2：还要同时够快；默认 30。',
     kind: 'range',
     min: 8,
     max: 80,
@@ -64,9 +107,20 @@ export const FEEL_FIELDS: {
     unit: '设计px',
   },
   {
+    key: 'speedPxS',
+    label: '出手速度',
+    why: '手感2专用。看最近约 80ms 沿锁轴的速度，不是单帧、不是抬手。低于此值再远也不走。',
+    kind: 'range',
+    min: 80,
+    max: 1200,
+    step: 20,
+    unit: 'px/秒',
+    schemes: [2],
+  },
+  {
     key: 'axisRatio',
     label: '主轴/副轴倍数',
-    why: '本段先看清横或竖再锁轴。出手后尾部斜向不能改轴。不够直则本段作废。1=容易抢轴；1.4 必须更直。',
+    why: '主轴必须明显长于副轴才锁方向。越大越准、斜滑越不下棋。看清后由出手距离决定滑多远。',
     kind: 'range',
     min: 1,
     max: 2,
@@ -76,12 +130,45 @@ export const FEEL_FIELDS: {
   {
     key: 'tileMoveMs',
     label: '每格用时',
-    why: '方块穿过 1 格要多少毫秒。走 4 格就是 4 倍时间，速度相同。只改位移快慢。',
+    why: '单块：穿过 1 格的毫秒，走几格就 × 几（匀速）。',
     kind: 'range',
     min: 40,
     max: 400,
     step: 10,
     unit: 'ms/格',
+    modes: ['solo'],
+  },
+  {
+    key: 'slideMs',
+    label: '每格滑移',
+    why: '穿过 1 格的时间。走 3 格约 3 倍时长，比走 2 格晚到。默认 80ms/格（三格约 240ms）。',
+    kind: 'range',
+    min: 20,
+    max: 200,
+    step: 5,
+    unit: 'ms/格',
+    modes: ['merge'],
+  },
+  {
+    key: 'appearMs',
+    label: '出现时长',
+    why: '新块从约半格长到满格。等走得最远的那块到位后再开始。',
+    kind: 'range',
+    min: 40,
+    max: 500,
+    step: 10,
+    unit: 'ms',
+  },
+  {
+    key: 'mergePopMs',
+    label: '合并弹时长',
+    why: '合成块放大再收回的时间，峰值跟该块自己快到格时对齐。0 则不弹。',
+    kind: 'range',
+    min: 0,
+    max: 400,
+    step: 10,
+    unit: 'ms',
+    modes: ['merge'],
   },
   {
     key: 'inputLockMs',
@@ -126,21 +213,48 @@ export const FEEL_FIELDS: {
   {
     key: 'sameDirRepeat',
     label: '同向按住连走',
-    why: '打开后：不松手、同一方向继续拖，会再走一步。关闭则必须转向或抬手。',
+    why: '打开后：不松手、同一方向继续拖，会再走一步。关闭则必须转向或抬手。手感2 每次按下只走一步，此项无效。',
     kind: 'check',
+    schemes: [1],
+  },
+  {
+    key: 'boardY',
+    label: '棋盘上下',
+    why: '正数把棋盘往下移，负数往上。只动棋盘，标题和分数不动。',
+    kind: 'range',
+    min: -80,
+    max: 160,
+    step: 2,
+    unit: '设计px',
+  },
+  {
+    key: 'boardScale',
+    label: '棋盘大小',
+    why: '整体放大或缩小棋盘。1 为原先尺寸，1.1 大约大一成。',
+    kind: 'range',
+    min: 0.9,
+    max: 1.2,
+    step: 0.02,
+    unit: '倍',
   },
 ];
 
+export function defaultsFor(scheme: FeelScheme): Feel {
+  return scheme === 2 ? { ...FEEL2_DEFAULT } : { ...FEEL_DEFAULT };
+}
+
 function clampFeel(raw: Partial<Feel>): Feel {
-  const next = { ...FEEL_DEFAULT, ...raw };
+  const scheme: FeelScheme = raw.scheme === 2 ? 2 : 1;
+  const next = { ...defaultsFor(scheme), ...raw, scheme };
   for (const f of FEEL_FIELDS) {
     if (f.kind !== 'range') continue;
-    const k = f.key as Exclude<keyof Feel, 'sameDirRepeat'>;
+    const k = f.key as Exclude<keyof Feel, 'sameDirRepeat' | 'scheme'>;
     const n = Number(next[k]);
-    const v = Number.isFinite(n) ? n : (FEEL_DEFAULT[k] as number);
+    const v = Number.isFinite(n) ? n : (defaultsFor(scheme)[k] as number);
     next[k] = Math.min(f.max ?? v, Math.max(f.min ?? v, v)) as never;
   }
   next.sameDirRepeat = Boolean(next.sameDirRepeat);
+  next.scheme = scheme;
   return next;
 }
 
@@ -158,8 +272,43 @@ export function saveFeel(feel: Feel): void {
   localStorage.setItem(KEY, JSON.stringify(feel));
 }
 
+export function defaultFeelForMode(mode: FeelMode): Feel {
+  return mode === 'solo' ? { ...FEEL_DEFAULT } : { ...FEEL2_DEFAULT };
+}
+
+function readFeelMap(): Partial<Record<FeelMode, Feel>> {
+  try {
+    const raw = localStorage.getItem(KEY_BY_MODE);
+    if (!raw) return {};
+    return JSON.parse(raw) as Partial<Record<FeelMode, Feel>>;
+  } catch {
+    return {};
+  }
+}
+
+export function loadFeelFor(mode: FeelMode): Feel {
+  const slot = readFeelMap()[mode];
+  if (slot) return clampFeel(slot);
+  return defaultFeelForMode(mode);
+}
+
+export function saveFeelFor(mode: FeelMode, feel: Feel): void {
+  const map = readFeelMap();
+  map[mode] = clampFeel(feel);
+  localStorage.setItem(KEY_BY_MODE, JSON.stringify(map));
+  saveFeel(feel);
+}
+
 export function applyFeelCss(feel: Feel, root: HTMLElement = document.documentElement): void {
   root.style.setProperty('--g-tile-ms', `${feel.tileMoveMs}ms`);
+  root.style.setProperty('--g-appear-ms', `${feel.appearMs}ms`);
+  root.style.setProperty('--g-pop-ms', `${feel.mergePopMs}ms`);
   root.style.setProperty('--g-nudge-ms', `${feel.nudgeMs}ms`);
   root.style.setProperty('--g-nudge-px', `${feel.nudgePx}px`);
+  root.style.setProperty('--g-board-y', `${feel.boardY}px`);
+  const s = feel.boardScale;
+  root.style.setProperty('--g-cell', `${72 * s}px`);
+  root.style.setProperty('--g-gap', `${8 * s}px`);
+  root.style.setProperty('--g-board', `${(4 * 72 + 5 * 8) * s}px`);
+  root.style.setProperty('--g-tile-font', `${37 * s}px`);
 }

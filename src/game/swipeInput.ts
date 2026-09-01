@@ -1,13 +1,17 @@
 /**
- * Incremental pan: consume a segment then reset origin (setTranslation(0)).
- * Per-segment axis lock at slop (WWDC hysteresis): end-of-stroke drift
- * cannot flip H/V. Diagonal until clear → no snap. pointercancel does not
- * end the hold.
+ * Event layer: Pointer → evaluateSegment. Spec: docs/SWIPE-DESIGN.md
  */
 
 import { DESIGN_WIDTH } from '../adapt/design';
 import type { Dir } from './board';
 import { FEEL_DEFAULT, type Feel } from './feel';
+import {
+  evaluateSegment,
+  shouldInvalidOnLift,
+  type Axis,
+  type SegmentDecision,
+} from './swipeSegment';
+import { alongSpeed, createVelocityWindow } from './swipeVelocity';
 
 export type SwipeInputOptions = {
   target: HTMLElement;
@@ -22,19 +26,10 @@ export type SwipeHandle = {
   onMoveSettled: () => void;
 };
 
-function dirFromDelta(dx: number, dy: number, axisRatio: number): Dir | null {
-  const ax = Math.abs(dx);
-  const ay = Math.abs(dy);
-  const major = Math.max(ax, ay);
-  const minor = Math.min(ax, ay);
-  if (major < minor * axisRatio) return null;
-  return ax > ay ? (dx > 0 ? 1 : 3) : dy > 0 ? 2 : 0;
-}
-
 function isChrome(el: EventTarget | null): boolean {
   return (
     el instanceof Element &&
-    !!el.closest('button, a, input, #device-switcher, #feel-panel')
+    !!el.closest('button, a, input, #device-switcher, #feel-panel, #g-title')
   );
 }
 
@@ -48,10 +43,9 @@ export function attachSwipeInput(opts: SwipeInputOptions): SwipeHandle {
   let lastX = 0;
   let lastY = 0;
   let lastDir: Dir | null = null;
-  /** 0 = 竖轴, 1 = 横轴；本段未看清前为 null */
-  let axis: 0 | 1 | null = null;
+  let axis: Axis | null = null;
   let retryTimer = 0;
-  let notedDiag = false;
+  const vel = createVelocityWindow();
 
   const scalePx = (designPx: number) => {
     const w = target.getBoundingClientRect().width;
@@ -63,13 +57,50 @@ export function attachSwipeInput(opts: SwipeInputOptions): SwipeHandle {
     segX = lastX;
     segY = lastY;
     axis = null;
-    notedDiag = false;
+    vel.reset(performance.now(), lastX, lastY);
+  };
+
+  const applyDecision = (d: SegmentDecision) => {
+    if (d.consume) {
+      consumeSegment();
+      if (d.fire !== null) {
+        lastDir = d.fire;
+        onMove(d.fire);
+      }
+      return;
+    }
+    axis = d.axis;
+  };
+
+  const scaledInput = () => {
+    const feel = feelOf();
+    const dx = lastX - segX;
+    const dy = lastY - segY;
+    const lock: Axis = axis ?? (Math.abs(dx) > Math.abs(dy) ? 1 : 0);
+    return {
+      dx,
+      dy,
+      axis,
+      lastDir,
+      slop: scalePx(feel.slopPx),
+      commit: scalePx(feel.commitPx),
+      axisRatio: feel.axisRatio,
+      sameDirRepeat: feel.sameDirRepeat,
+      scheme: feel.scheme,
+      speed: alongSpeed(vel.axisSpeed(), lock),
+      speedMin: scalePx(feel.speedPxS),
+    };
+  };
+
+  const tryCommit = () => {
+    if (!holding || isBlocked?.()) return;
+    applyDecision(evaluateSegment(scaledInput()));
   };
 
   const armRetry = (ms: number) => {
     window.clearTimeout(retryTimer);
     retryTimer = window.setTimeout(() => {
-      if (holding) commitIfReady();
+      if (holding) tryCommit();
     }, ms);
   };
 
@@ -77,12 +108,12 @@ export function attachSwipeInput(opts: SwipeInputOptions): SwipeHandle {
     pid = e.pointerId;
     lastX = e.clientX;
     lastY = e.clientY;
+    vel.reset(performance.now(), lastX, lastY);
     if (fresh || !holding) {
       segX = lastX;
       segY = lastY;
       lastDir = null;
       axis = null;
-      notedDiag = false;
     } else {
       consumeSegment();
     }
@@ -92,53 +123,6 @@ export function attachSwipeInput(opts: SwipeInputOptions): SwipeHandle {
     } catch {
       /* ignore */
     }
-  };
-
-  const commitIfReady = () => {
-    if (!holding || isBlocked?.()) return;
-    const feel = feelOf();
-    const slop = scalePx(feel.slopPx);
-    const commit = scalePx(feel.commitPx);
-    const dx = lastX - segX;
-    const dy = lastY - segY;
-    const ax = Math.abs(dx);
-    const ay = Math.abs(dy);
-    const dist = Math.max(ax, ay);
-
-    if (axis === null) {
-      if (dist < slop) return;
-      const guess = dirFromDelta(dx, dy, feel.axisRatio);
-      if (guess === null) {
-        if (dist >= commit) {
-          if (!notedDiag) {
-            notedDiag = true;
-            onInvalid?.();
-          }
-          consumeSegment();
-        }
-        return;
-      }
-      axis = guess === 1 || guess === 3 ? 1 : 0;
-    } else {
-      const along = axis === 1 ? ax : ay;
-      const other = axis === 1 ? ay : ax;
-      if (along < commit && other >= slop && other >= along * feel.axisRatio) {
-        axis = axis === 1 ? 0 : 1;
-      }
-    }
-
-    const along = axis === 1 ? ax : ay;
-    if (along < commit) return;
-
-    const dir: Dir = axis === 1 ? (dx > 0 ? 1 : 3) : dy > 0 ? 2 : 0;
-    if (dir === lastDir && !feel.sameDirRepeat) {
-      consumeSegment();
-      return;
-    }
-
-    lastDir = dir;
-    consumeSegment();
-    onMove(dir);
   };
 
   const onMoveSettled = () => {
@@ -159,7 +143,8 @@ export function attachSwipeInput(opts: SwipeInputOptions): SwipeHandle {
     if (pid === null || e.pointerId !== pid) grab(e, false);
     lastX = e.clientX;
     lastY = e.clientY;
-    commitIfReady();
+    vel.push(performance.now(), lastX, lastY);
+    tryCommit();
   };
 
   const endHold = (e: PointerEvent, fromCancel: boolean) => {
@@ -167,6 +152,7 @@ export function attachSwipeInput(opts: SwipeInputOptions): SwipeHandle {
     if (pid !== null && e.pointerId !== pid && !fromCancel) return;
     lastX = e.clientX;
     lastY = e.clientY;
+    vel.push(performance.now(), lastX, lastY);
     window.clearTimeout(retryTimer);
 
     if (fromCancel) {
@@ -176,11 +162,13 @@ export function attachSwipeInput(opts: SwipeInputOptions): SwipeHandle {
 
     if (!isBlocked?.()) {
       const feel = feelOf();
+      const slop = scalePx(feel.slopPx);
+      const commit = scalePx(feel.commitPx);
       const dist = Math.max(Math.abs(lastX - segX), Math.abs(lastY - segY));
-      if (lastDir === null && dist >= scalePx(feel.slopPx) && dist < scalePx(feel.commitPx)) {
+      if (shouldInvalidOnLift({ lastDir, dist, slop, commit })) {
         onInvalid?.();
       } else {
-        commitIfReady();
+        tryCommit();
       }
     }
     holding = false;

@@ -1,10 +1,10 @@
 # Engineering — portrait-webgpu-base
 
-配套：[AGENTS.md](../AGENTS.md) · [ENTRYPOINTS.md](./ENTRYPOINTS.md) · [MERGE.md](./MERGE.md) · [AUDIO.md](./AUDIO.md) · [HAPTICS.md](./HAPTICS.md) · [SWIPE-GESTURE.md](./SWIPE-GESTURE.md) · [SWIPE-SOURCES.md](./SWIPE-SOURCES.md)
+配套：[AGENTS.md](../AGENTS.md) · [README.md](./README.md) · [IMPLEMENTATION.md](./IMPLEMENTATION.md) · [ENTRYPOINTS.md](./ENTRYPOINTS.md) · [MERGE.md](./MERGE.md) · [AUDIO.md](./AUDIO.md) · [HAPTICS.md](./HAPTICS.md) · [SWIPE-GESTURE.md](./SWIPE-GESTURE.md) · [SWIPE-SOURCES.md](./SWIPE-SOURCES.md)
 
 ## 1. 定位
 
-可复制的 **竖屏 WebGPU 手游底座**：能 dev、能 build、能真机、能震动、桌面≈手机/Pad。不含具体玩法（demo 可删）。
+可复制的 **竖屏 WebGPU 手游底座**：能 dev、能 build、能真机、能震动、桌面≈手机/Pad。本仓库玩法在 `src/game/*`（2048 + 单块），底座约定仍有效。
 
 ## 2. 目录
 
@@ -17,7 +17,8 @@ portrait-webgpu-base/
 ├── vite.config.ts          # base: './' · port 5204
 ├── capacitor.config.ts     # contentInset never · scrollEnabled false
 ├── src/
-│   ├── main.ts             # demo（可替换）
+│   ├── main.ts             # 启动游戏
+│   ├── game/               # 2048 / 单块 / 手势
 │   ├── create-renderer.ts
 │   ├── style.css
 │   ├── adapt/
