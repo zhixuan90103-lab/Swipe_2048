@@ -1,10 +1,12 @@
 import {
   FEEL_FIELDS,
+  SLIDE_EASE_OPTIONS,
   applyFeelCss,
   defaultsFor,
   type Feel,
   type FeelMode,
   type FeelScheme,
+  type SlideEase,
 } from './feel';
 
 export function mountFeelPanel(
@@ -66,6 +68,17 @@ export function mountFeelPanel(
           <div class="feel-why">${f.why}</div>
           <input type="checkbox" data-key="${f.key}" ${val ? 'checked' : ''} />
         `;
+      } else if (f.kind === 'choice' && f.key === 'slideEase') {
+        row.innerHTML = `
+          <div class="feel-name">${f.label}</div>
+          <div class="feel-why">${f.why}</div>
+          <div class="feel-schemes" data-choice="slideEase">
+            ${SLIDE_EASE_OPTIONS.map(
+              (o) =>
+                `<button type="button" data-ease="${o.id}" class="${feel.slideEase === o.id ? 'on' : ''}">${o.label}</button>`,
+            ).join('')}
+          </div>
+        `;
       } else {
         row.innerHTML = `
           <div class="feel-name">${f.label} <em>${val}${f.unit ?? ''}</em></div>
@@ -104,6 +117,7 @@ export function mountFeelPanel(
     const keep = {
       tileMoveMs: feel.tileMoveMs,
       slideMs: feel.slideMs,
+      slideEase: feel.slideEase,
       appearMs: feel.appearMs,
       mergePopMs: feel.mergePopMs,
       inputLockMs: feel.inputLockMs,
@@ -119,6 +133,15 @@ export function mountFeelPanel(
     feel = { ...defaultsFor(scheme), ...keep, scheme };
     emit();
   });
+  list.addEventListener('click', (e) => {
+    const btn = (e.target as HTMLElement).closest('[data-ease]') as HTMLElement | null;
+    if (!btn) return;
+    const id = btn.dataset.ease as SlideEase;
+    if (id !== 'out' && id !== 'soft' && id !== 'linear') return;
+    feel = { ...feel, slideEase: id };
+    emit();
+  });
+
   wrap.querySelector('#feel-reset')!.addEventListener('click', () => {
     feel = defaultsFor(feel.scheme);
     emit();

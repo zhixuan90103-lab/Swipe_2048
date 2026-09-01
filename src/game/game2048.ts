@@ -1,15 +1,15 @@
 import { applyMove, newGame, type BoardState, type Dir } from './board';
-import { applyFeelCss, loadFeelFor, saveFeelFor, type Feel } from './feel';
+import {
+  applyFeelCss,
+  loadFeelFor,
+  saveFeelFor,
+  SLIDE_EASE_CSS,
+  type Feel,
+} from './feel';
 import { mountFeelPanel } from './feelPanel';
 import { moveSolo, newSolo, soloAsBoard, type SoloState } from './solo';
 import { attachSwipeInput, type SwipeHandle } from './swipeInput';
-import {
-  MERGE_SLIDE_EASE,
-  nudgeBoard,
-  paintBoard,
-  slideDurationMs,
-  type PaintAnim,
-} from './view';
+import { nudgeBoard, paintBoard, slideDurationMs, type PaintAnim } from './view';
 
 type Mode = 'merge' | 'solo';
 
@@ -118,20 +118,33 @@ export function startGame2048(opts: {
       ? { durationMs: feel.tileMoveMs, easing: 'linear', perCell: true }
       : {
           durationMs: feel.slideMs,
-          easing: MERGE_SLIDE_EASE,
+          easing: SLIDE_EASE_CSS[feel.slideEase],
           perCell: true,
           mergePopMs: feel.mergePopMs,
         };
 
+  const scorePool: HTMLSpanElement[] = [];
   const floatScore = (delta: number) => {
     if (delta <= 0) return;
     const box = scoreEl.parentElement;
     if (!box) return;
-    const el = document.createElement('span');
-    el.className = 'g-score-add';
+    let el = scorePool.find((s) => s.dataset.busy !== '1');
+    if (!el) {
+      el = document.createElement('span');
+      el.className = 'g-score-add';
+      box.appendChild(el);
+      scorePool.push(el);
+      el.addEventListener('animationend', () => {
+        el!.dataset.busy = '0';
+        el!.style.visibility = 'hidden';
+      });
+    }
+    el.dataset.busy = '1';
     el.textContent = `+${delta}`;
-    box.appendChild(el);
-    el.addEventListener('animationend', () => el.remove(), { once: true });
+    el.style.visibility = 'visible';
+    el.style.animation = 'none';
+    void el.offsetWidth;
+    el.style.removeProperty('animation');
   };
 
   const render = (animate: boolean) => {

@@ -51,8 +51,63 @@ function pos(x: number, y: number, scale: number): string {
   return `translate(${left}px, ${top}px)`;
 }
 
-function tileEl(t: Tile, at: { x: number; y: number }, scale: number): HTMLDivElement {
+const tilePools = new WeakMap<HTMLElement, HTMLDivElement[]>();
+
+function makeTile(): HTMLDivElement {
   const el = document.createElement('div');
+  el.className = 'g-tile';
+  el.dataset.busy = '0';
+  const inner = document.createElement('div');
+  inner.className = 'g-tile-inner';
+  el.appendChild(inner);
+  return el;
+}
+
+function poolFor(layer: HTMLElement): HTMLDivElement[] {
+  let pool = tilePools.get(layer);
+  if (!pool) {
+    pool = [];
+    for (let i = 0; i < SIZE * SIZE; i++) {
+      const el = makeTile();
+      el.style.visibility = 'hidden';
+      layer.appendChild(el);
+      pool.push(el);
+    }
+    tilePools.set(layer, pool);
+  }
+  return pool;
+}
+
+function acquireTile(layer: HTMLElement, pool: HTMLDivElement[]): HTMLDivElement {
+  let el = pool.find((e) => e.dataset.busy !== '1');
+  if (!el) {
+    el = makeTile();
+    pool.push(el);
+    layer.appendChild(el);
+  }
+  el.dataset.busy = '1';
+  el.style.visibility = 'visible';
+  return el;
+}
+
+function recycleIdle(pool: HTMLDivElement[]): void {
+  for (const el of pool) {
+    if (el.dataset.busy === '1') continue;
+    el.style.visibility = 'hidden';
+    el.style.transition = 'none';
+    el.className = 'g-tile';
+    const inner = el.firstElementChild as HTMLElement;
+    inner.style.removeProperty('animation-delay');
+  }
+}
+
+function fillTile(
+  el: HTMLDivElement,
+  t: Tile,
+  at: { x: number; y: number },
+  scale: number,
+): HTMLElement {
+  const inner = el.firstElementChild as HTMLElement;
   el.className = 'g-tile';
   el.dataset.id = String(t.id);
   const c = COLORS[t.value] ?? { bg: '#3c3a32', fg: '#f9f6f2' };
@@ -60,21 +115,26 @@ function tileEl(t: Tile, at: { x: number; y: number }, scale: number): HTMLDivEl
   el.style.width = `${px}px`;
   el.style.height = `${px}px`;
   el.style.transform = pos(at.x, at.y, scale);
-  const inner = document.createElement('div');
-  inner.className = 'g-tile-inner';
+  el.style.transition = 'none';
   inner.style.background = c.bg;
   inner.style.color = c.fg;
   inner.textContent = t.label ?? String(t.value);
+  inner.style.removeProperty('animation-delay');
   let fs = TILE_FONT_1 * scale;
   if (t.value >= 100) fs = TILE_FONT_3 * scale;
   if (t.value >= 1000) fs = TILE_FONT_4 * scale;
   inner.style.fontSize = `${fs}px`;
-  el.appendChild(inner);
-  return el;
+  return inner;
+}
+
+function kickClass(el: HTMLElement, name: string): void {
+  el.classList.remove('g-tile-new', 'g-tile-merge');
+  void el.offsetWidth;
+  el.classList.add(name);
 }
 
 /** 默认每格滑移（设置 `slideMs` 覆盖） */
-export const MERGE_SLIDE_MS = 80;
+export const MERGE_SLIDE_MS = 75;
 /** 先快后慢：出手立刻冲出，到位减速贴格 */
 export const MERGE_SLIDE_EASE = 'cubic-bezier(0.22, 1, 0.36, 1)';
 
@@ -99,7 +159,8 @@ export function paintBoard(
   scale = 1,
 ): void {
   const layer = host.querySelector('.g-tiles') as HTMLElement;
-  layer.replaceChildren();
+  const pool = poolFor(layer);
+  for (const el of pool) el.dataset.busy = '0';
 
   const slideMs = animate ? slideDurationMs(state, anim) : 0;
   host.style.setProperty('--g-slide-ms', `${slideMs}ms`);
@@ -130,33 +191,31 @@ export function paintBoard(
           from = p;
         }
       }
-      const el = tileEl(t, from, scale);
+      const el = acquireTile(layer, pool);
+      const inner = fillTile(el, t, from, scale);
       const popMs = anim.mergePopMs ?? 0;
       if (popMs > 0) {
-        el.classList.add('g-tile-merge');
-        const inner = el.firstElementChild as HTMLElement;
-        // 峰值对准滑移约 60%（快落到格），不要等滑完再弹
         const ownMs = travel > 0 ? tileMs(from, t) : 0;
         const peakAt = Math.round(ownMs * 0.6);
         const peakIn = Math.round(popMs * 0.28);
         inner.style.animationDelay = `${Math.max(0, peakAt - peakIn)}ms`;
+        kickClass(el, 'g-tile-merge');
       }
-      layer.appendChild(el);
       if (travel > 0) slide(el, from, t);
     } else if (t.previous && (t.previous.x !== t.x || t.previous.y !== t.y)) {
-      const el = tileEl(t, t.previous, scale);
-      layer.appendChild(el);
+      const el = acquireTile(layer, pool);
+      fillTile(el, t, t.previous, scale);
       slide(el, t.previous, t);
     } else {
-      const el = tileEl(t, { x: t.x, y: t.y }, scale);
+      const el = acquireTile(layer, pool);
+      const inner = fillTile(el, t, { x: t.x, y: t.y }, scale);
       if (!t.previous && animate) {
-        el.classList.add('g-tile-new');
-        const inner = el.firstElementChild as HTMLElement;
         inner.style.animationDelay = `${slideMs}ms`;
+        kickClass(el, 'g-tile-new');
       }
-      layer.appendChild(el);
     }
   }
+  recycleIdle(pool);
 }
 
 export function nudgeBoard(host: HTMLElement, ms = 140): void {

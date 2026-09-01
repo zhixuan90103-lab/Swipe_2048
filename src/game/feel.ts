@@ -1,5 +1,21 @@
 export type FeelScheme = 1 | 2;
 
+/** 整段位移曲线。时长仍是 格数 × slideMs */
+export type SlideEase = 'out' | 'soft' | 'linear';
+
+export const SLIDE_EASE_CSS: Record<SlideEase, string> = {
+  /** 先快后慢，比 expo 收着，避免前半段甩完 */
+  out: 'cubic-bezier(0.25, 0.46, 0.45, 0.94)',
+  soft: 'cubic-bezier(0.39, 0.575, 0.565, 1)',
+  linear: 'linear',
+};
+
+export const SLIDE_EASE_OPTIONS: { id: SlideEase; label: string }[] = [
+  { id: 'out', label: '先快后慢' },
+  { id: 'soft', label: '更柔' },
+  { id: 'linear', label: '匀速' },
+];
+
 export type Feel = {
   /** 1 = 距离出手（当前）；2 = 速度门槛 + 短距 */
   scheme: FeelScheme;
@@ -15,6 +31,8 @@ export type Feel = {
   tileMoveMs: number;
   /** 2048：穿过 1 格的毫秒。走得远越晚到 */
   slideMs: number;
+  /** 2048：整段滑移曲线 */
+  slideEase: SlideEase;
   /** 新块从小到大的时长（毫秒），滑移结束后开始 */
   appearMs: number;
   /** 2048 合并到位后轻微放大收回的时长（毫秒） */
@@ -42,7 +60,8 @@ export const FEEL_DEFAULT: Feel = {
   speedPxS: 400,
   axisRatio: 1.55,
   tileMoveMs: 60,
-  slideMs: 80,
+  slideMs: 75,
+  slideEase: 'soft',
   appearMs: 200,
   mergePopMs: 120,
   inputLockMs: 10,
@@ -61,9 +80,9 @@ export const FEEL2_DEFAULT: Feel = {
   commitPx: 30,
   speedPxS: 200,
   tileMoveMs: 70,
-  slideMs: 80,
-  appearMs: 230,
-  mergePopMs: 180,
+  slideMs: 75,
+  appearMs: 250,
+  mergePopMs: 200,
   inputLockMs: 50,
   rearmMs: 0,
 };
@@ -77,7 +96,7 @@ export const FEEL_FIELDS: {
   key: keyof Feel;
   label: string;
   why: string;
-  kind: 'range' | 'check';
+  kind: 'range' | 'check' | 'choice';
   min?: number;
   max?: number;
   step?: number;
@@ -141,12 +160,19 @@ export const FEEL_FIELDS: {
   {
     key: 'slideMs',
     label: '每格滑移',
-    why: '穿过 1 格的时间。走 3 格约 3 倍时长，比走 2 格晚到。默认 80ms/格（三格约 240ms）。',
+    why: '穿过 1 格的时间。走 3 格约 3 倍时长，比走 2 格晚到。默认 75ms/格。',
     kind: 'range',
     min: 20,
     max: 200,
     step: 5,
     unit: 'ms/格',
+    modes: ['merge'],
+  },
+  {
+    key: 'slideEase',
+    label: '滑移曲线',
+    why: '作用在整段路程上：走 3 格也是一条曲线，不是一格一段。',
+    kind: 'choice',
     modes: ['merge'],
   },
   {
@@ -248,13 +274,15 @@ function clampFeel(raw: Partial<Feel>): Feel {
   const next = { ...defaultsFor(scheme), ...raw, scheme };
   for (const f of FEEL_FIELDS) {
     if (f.kind !== 'range') continue;
-    const k = f.key as Exclude<keyof Feel, 'sameDirRepeat' | 'scheme'>;
+    const k = f.key as Exclude<keyof Feel, 'sameDirRepeat' | 'scheme' | 'slideEase'>;
     const n = Number(next[k]);
     const v = Number.isFinite(n) ? n : (defaultsFor(scheme)[k] as number);
     next[k] = Math.min(f.max ?? v, Math.max(f.min ?? v, v)) as never;
   }
   next.sameDirRepeat = Boolean(next.sameDirRepeat);
   next.scheme = scheme;
+  next.slideEase =
+    next.slideEase === 'soft' || next.slideEase === 'linear' ? next.slideEase : 'out';
   return next;
 }
 

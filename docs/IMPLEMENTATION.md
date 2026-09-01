@@ -79,7 +79,7 @@ UI 对齐中文原版 2048 画面（`docs/UI-ORIGINAL.md`）。
 | speedPxS | 400 | 手感1 不用 |
 | axisRatio | 1.55 | 主轴/副轴 |
 | tileMoveMs | 60 | 每格 ms（仅单块） |
-| slideMs | **80** ms/格 | 2048 按格计时，远的晚到（3 格约 240ms） |
+| slideMs | **75** ms/格 | 2048 按格计时，远的晚到 |
 | appearMs | 200（手感2 **230**） | 新块出现 |
 | mergePopMs | 120（手感2 **180**） | 合并到位轻弹 |
 | inputLockMs | 10 | 动画后再锁输入 |
@@ -89,7 +89,7 @@ UI 对齐中文原版 2048 画面（`docs/UI-ORIGINAL.md`）。
 | boardY | 20 | 棋盘上下（正下负上） |
 | boardScale | 1.09 | 棋盘整体缩放（1=328px，1.09≈358 宽） |
 
-**手感2**（2048 默认）在手感1 上改为：`scheme 2`，`commitPx 30`，`speedPxS 200`，`tileMoveMs 70`，`slideMs 80`，`appearMs 230`，`mergePopMs 180`，`inputLockMs 50`，`rearmMs 0`。
+**手感2**（2048 默认）在手感1 上改为：`scheme 2`，`commitPx 30`，`speedPxS 200`，`tileMoveMs 70`，`slideMs 75`，`appearMs 250`，`mergePopMs 200`，`inputLockMs 50`，`rearmMs 0`。
 
 切 2048 / 单块会加载该模式上次手感。面板「恢复默认」只恢复 **当前 scheme** 的默认。切 scheme 时保留动画锁、死区、轴比、棋盘位置与大小。
 
@@ -111,7 +111,7 @@ UI 对齐中文原版 2048 画面（`docs/UI-ORIGINAL.md`）。
 
 | | 2048 | 单块 |
 |--|--|--|
-| 滑移 | **格数 × `slideMs`（默认 80ms/格）**，ease-out；远的晚到 | 格数 × `tileMoveMs`，**linear** |
+| 滑移 | **格数 × `slideMs`（默认 75ms/格）**，更柔 ease-out；远的晚到 | 格数 × `tileMoveMs`，**linear** |
 | 新块 | 滑完立刻，`0.4 → 1`，时长 **`appearMs`（2048 默认 230）** | 同左 |
 | 合并 | 新数字跟着滑；`1 → 1.1 → 1`，**`mergePopMs`（2048 默认 180）**，峰值对准滑移约 60% | — |
 | 分数 | `+N` 上飘 600ms ease-in | 无 |
