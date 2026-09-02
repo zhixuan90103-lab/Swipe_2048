@@ -19,12 +19,23 @@ import {
 import { SFX_PACKS, isSfxPack } from '../audio/AudioCatalog';
 import { gameSfx } from '../utils/gameSfx';
 import { gameHaptics } from '../utils/gameHaptics';
+import {
+  AMAZE_CELL_MAX,
+  AMAZE_CELL_MIN,
+  AMAZE_MOVE_MS_MAX,
+  AMAZE_MOVE_MS_MIN,
+  getAmazeCell,
+  getAmazeMoveMs,
+  setAmazeCell,
+  setAmazeMoveMs,
+} from './amaze';
 
 export function mountFeelPanel(
   host: HTMLElement,
   onChange: (feel: Feel) => void,
   initial: Feel,
   initialMode: FeelMode,
+  onAmazeSize?: () => void,
 ): {
   get: () => Feel;
   set: (next: Feel, mode?: FeelMode) => void;
@@ -145,6 +156,25 @@ export function mountFeelPanel(
       list.appendChild(row);
     }
 
+    const mazeCell = getAmazeCell();
+    const mazeRow = document.createElement('label');
+    mazeRow.className = 'feel-row';
+    mazeRow.innerHTML = `
+      <div class="feel-name">涂色格子边长 <em>${mazeCell}设计px</em></div>
+      <div class="feel-why">只改涂色盘大小，7×9 格数不变。与 2048 棋盘缩放无关。</div>
+      <input type="range" data-amaze-cell="1" min="${AMAZE_CELL_MIN}" max="${AMAZE_CELL_MAX}" step="1" value="${mazeCell}" />
+    `;
+    list.appendChild(mazeRow);
+    const moveMs = getAmazeMoveMs();
+    const moveRow = document.createElement('label');
+    moveRow.className = 'feel-row';
+    moveRow.innerHTML = `
+      <div class="feel-name">涂色移动速度 <em>${moveMs}ms/格</em></div>
+      <div class="feel-why">数字越小滑得越快。只改涂色方块，与 2048 每格滑移无关。</div>
+      <input type="range" data-amaze-move="1" min="${AMAZE_MOVE_MS_MIN}" max="${AMAZE_MOVE_MS_MAX}" step="5" value="${moveMs}" />
+    `;
+    list.appendChild(moveRow);
+
     hapticList.replaceChildren();
     const hf = getHapticFeel();
     for (const f of HAPTIC_FIELDS) {
@@ -186,8 +216,23 @@ export function mountFeelPanel(
 
   list.addEventListener('input', (e) => {
     const el = e.target as HTMLInputElement | null;
+    if (!el) return;
+    if (el.dataset.amazeCell) {
+      const v = setAmazeCell(Number(el.value));
+      const em = el.parentElement?.querySelector('em');
+      if (em) em.textContent = `${v}设计px`;
+      onAmazeSize?.();
+      return;
+    }
+    if (el.dataset.amazeMove) {
+      const v = setAmazeMoveMs(Number(el.value));
+      const em = el.parentElement?.querySelector('em');
+      if (em) em.textContent = `${v}ms/格`;
+      onAmazeSize?.();
+      return;
+    }
     const key = el?.dataset.key as keyof Feel | undefined;
-    if (!el || !key) return;
+    if (!key) return;
     if (el.type === 'checkbox') feel = { ...feel, [key]: el.checked };
     else feel = { ...feel, [key]: Number(el.value) };
     applyFeelCss(feel);

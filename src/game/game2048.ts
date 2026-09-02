@@ -7,12 +7,19 @@ import {
   type Feel,
 } from './feel';
 import { mountFeelPanel } from './feelPanel';
-import { moveSolo, newSolo, soloAsBoard, type SoloState } from './solo';
 import { attachSwipeInput, type SwipeHandle } from './swipeInput';
 import { maxTravelCells } from './motion';
 import { gameSfx } from '../utils/gameSfx';
 import { gameHaptics } from '../utils/gameHaptics';
 import { nudgeBoard, paintBoard, slideDurationMs, type PaintAnim } from './view';
+import {
+  cloneAmaze,
+  moveAmaze,
+  newAmazeRun,
+  retryAmaze,
+  type AmazeState,
+} from './amaze';
+import { mountAmaze, paintAmaze } from './amazeView';
 
 type Mode = 'merge' | 'solo';
 
@@ -54,10 +61,16 @@ export function startGame2048(opts: {
       <div class="g-board" id="g-board">
         <div class="g-grid"></div>
         <div class="g-tiles"></div>
-        <div class="g-overlay hidden" id="g-overlay">
-          <p id="g-over-msg">没有可走的步了</p>
-          <button type="button" id="g-retry">再来</button>
-        </div>
+      </div>
+    </div>
+    <div class="g-overlay hidden" id="g-overlay">
+      <div class="g-over-top">
+        <p class="g-over-score-label">本局分数</p>
+        <p class="g-over-score" id="g-over-score">0</p>
+        <p class="g-over-msg" id="g-over-msg">没有可走的步了</p>
+      </div>
+      <div class="g-over-bottom">
+        <button type="button" id="g-retry">再来</button>
       </div>
     </div>
   `;
@@ -66,6 +79,7 @@ export function startGame2048(opts: {
   const gridEl = boardEl.querySelector('.g-grid') as HTMLElement;
   const overlay = uiRoot.querySelector('#g-overlay') as HTMLElement;
   const overMsg = uiRoot.querySelector('#g-over-msg') as HTMLElement;
+  const overScore = uiRoot.querySelector('#g-over-score') as HTMLElement;
   const scoreEl = uiRoot.querySelector('#g-score') as HTMLElement;
   const bestEl = uiRoot.querySelector('#g-best') as HTMLElement;
 
@@ -75,9 +89,11 @@ export function startGame2048(opts: {
     gridEl.appendChild(cell);
   }
 
+  const mazeEl = mountAmaze(boardEl.parentElement as HTMLElement);
+
   let mode: Mode = 'merge';
   let state: BoardState = newGame();
-  let solo: SoloState = newSolo();
+  let amaze: AmazeState = newAmazeRun();
   let busy = false;
   let feel: Feel = loadFeelFor('merge');
   let best = Number(localStorage.getItem(BEST_KEY) || '0');
@@ -86,7 +102,7 @@ export function startGame2048(opts: {
   let swipe: SwipeHandle;
   let pending:
     | { mode: 'merge'; state: BoardState; best: number }
-    | { mode: 'solo'; solo: SoloState; best: number }
+    | { mode: 'solo'; amaze: AmazeState; best: number }
     | null = null;
 
   const titleEl = uiRoot.querySelector('#g-title') as HTMLElement;
@@ -95,18 +111,20 @@ export function startGame2048(opts: {
 
   const hud = () => {
     const isSolo = mode === 'solo';
-    titleEl.textContent = isSolo ? '单块' : '2048';
+    titleEl.textContent = isSolo ? '涂色' : '2048';
     titleEl.classList.toggle('g-logo-solo', isSolo);
     introEl.textContent = isSolo
-      ? '把方块滑到墙，一次滑到底。'
+      ? `第 ${amaze.level} 关 · 滑到边，躲开带 X 的格子`
       : '合并这些数字以得到2048方块！';
     if (isSolo) {
-      scoreEl.textContent = String(solo.score);
-      if (solo.score > soloBest) {
-        soloBest = solo.score;
+      scoreEl.textContent = String(amaze.score);
+      if (amaze.score > soloBest) {
+        soloBest = amaze.score;
         localStorage.setItem(SOLO_BEST_KEY, String(soloBest));
       }
       bestEl.textContent = String(soloBest);
+      overlay.classList.add('hidden');
+      overlay.classList.remove('g-overlay-in');
     } else {
       scoreEl.textContent = String(state.score);
       if (state.score > best) {
@@ -114,18 +132,19 @@ export function startGame2048(opts: {
         localStorage.setItem(BEST_KEY, String(best));
       }
       bestEl.textContent = String(best);
-    }
-    if (state.over) {
-      overMsg.textContent = '没有可走的步了';
-      overlay.classList.remove('hidden');
-      overlay.classList.add('g-overlay-in');
-    } else if (state.won) {
-      overMsg.textContent = '到 2048 了，还可继续';
-      overlay.classList.add('hidden');
-      overlay.classList.remove('g-overlay-in');
-    } else {
-      overlay.classList.add('hidden');
-      overlay.classList.remove('g-overlay-in');
+      if (state.over) {
+        overScore.textContent = String(state.score);
+        overMsg.textContent = '没有可走的步了';
+        overlay.classList.remove('hidden');
+        overlay.classList.add('g-overlay-in');
+      } else if (state.won) {
+        overMsg.textContent = '到 2048 了，还可继续';
+        overlay.classList.add('hidden');
+        overlay.classList.remove('g-overlay-in');
+      } else {
+        overlay.classList.add('hidden');
+        overlay.classList.remove('g-overlay-in');
+      }
     }
   };
 
@@ -164,8 +183,16 @@ export function startGame2048(opts: {
   };
 
   const render = (animate: boolean) => {
-    const board = mode === 'solo' ? soloAsBoard(solo) : state;
-    paintBoard(boardEl, board, animate, paintAnim(), feel.boardScale);
+    if (mode === 'solo') {
+      boardEl.classList.add('hidden');
+      mazeEl.classList.remove('hidden');
+      paintAmaze(mazeEl, amaze, animate);
+      hud();
+      return;
+    }
+    mazeEl.classList.add('hidden');
+    boardEl.classList.remove('hidden');
+    paintBoard(boardEl, state, animate, paintAnim(), feel.boardScale);
     hud();
   };
 
@@ -185,23 +212,23 @@ export function startGame2048(opts: {
   const tryDir = (dir: Dir) => {
     if (busy) return;
     if (mode === 'solo') {
-      const { state: next, moved, scoreDelta } = moveSolo(solo, dir);
+      const { state: next, moved, scoreDelta } = moveAmaze(amaze, dir);
       if (!moved) {
-        nudgeBoard(boardEl, feel.nudgeMs, dir);
+        nudgeBoard(mazeEl, feel.nudgeMs, dir);
         gameSfx.nudge();
         gameHaptics.nudge(feel.nudgeMs);
         return;
       }
       if (swipe?.isHolding() && !pending) {
-        pending = { mode: 'solo', solo, best: soloBest };
+        pending = { mode: 'solo', amaze: cloneAmaze(amaze), best: soloBest };
       }
-      solo = next;
+      amaze = next;
       busy = true;
-      const anim = paintAnim();
-      render(true);
+      const travel = paintAmaze(mazeEl, amaze, true);
+      hud();
       floatScore(scoreDelta);
-      playBoardSfx(soloAsBoard(solo));
-      const travel = slideDurationMs(soloAsBoard(solo), anim);
+      gameSfx.slide(Math.max(1, Math.abs((amaze.previous?.x ?? amaze.x) - amaze.x) + Math.abs((amaze.previous?.y ?? amaze.y) - amaze.y)));
+      gameHaptics.slide(1);
       window.clearTimeout(lockTimer);
       lockTimer = window.setTimeout(() => {
         busy = false;
@@ -249,7 +276,7 @@ export function startGame2048(opts: {
     gameSfx.clearPending();
     gameHaptics.clearPending();
     overlay.classList.add('hidden');
-    if (mode === 'solo') solo = newSolo();
+    if (mode === 'solo') amaze = newAmazeRun();
     else state = newGame();
     render(false);
   };
@@ -278,6 +305,13 @@ export function startGame2048(opts: {
     gameHaptics.ui();
     reset();
   });
+  mazeEl.querySelector('.maze-retry')!.addEventListener('click', () => {
+    gameSfx.ui();
+    gameHaptics.ui();
+    busy = false;
+    amaze = retryAmaze(amaze);
+    render(false);
+  });
 
   applyFeelCss(feel);
   render(false);
@@ -291,6 +325,9 @@ export function startGame2048(opts: {
     },
     feel,
     mode,
+    () => {
+      if (!busy) render(false);
+    },
   );
 
   settingsBtn.addEventListener('click', () => {
@@ -306,7 +343,7 @@ export function startGame2048(opts: {
     onMove: tryDir,
     onInvalid: (dir) => {
       if (!busy) {
-        nudgeBoard(boardEl, feel.nudgeMs, dir);
+        nudgeBoard(mode === 'solo' ? mazeEl : boardEl, feel.nudgeMs, dir);
         gameSfx.nudge();
         gameHaptics.nudge(feel.nudgeMs);
       }
@@ -319,7 +356,7 @@ export function startGame2048(opts: {
       window.clearTimeout(lockTimer);
       busy = false;
       if (pending.mode === 'solo') {
-        solo = pending.solo;
+        amaze = pending.amaze;
         soloBest = pending.best;
         localStorage.setItem(SOLO_BEST_KEY, String(soloBest));
       }

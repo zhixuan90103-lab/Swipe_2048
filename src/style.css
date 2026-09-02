@@ -441,6 +441,7 @@ button:active {
 .g-grid {
   position: absolute;
   inset: 0;
+  z-index: 0;
   display: grid;
   grid-template-columns: repeat(4, var(--g-cell, 72px));
   grid-template-rows: repeat(4, var(--g-cell, 72px));
@@ -456,6 +457,7 @@ button:active {
 .g-tiles {
   position: absolute;
   inset: 0;
+  z-index: 1;
   overflow: visible;
   pointer-events: none;
 }
@@ -497,19 +499,42 @@ button:active {
   animation: g-nudge var(--g-nudge-ms, 140ms) cubic-bezier(0.22, 0.61, 0.36, 1);
 }
 
+.g-board.hidden {
+  display: none;
+}
+
 .g-overlay {
   pointer-events: auto;
   position: absolute;
   inset: 0;
+  display: block;
+  background: rgba(250, 248, 239, 0.94);
+  text-align: center;
+  color: #776e65;
+  z-index: 200;
+  isolation: isolate;
+}
+
+.g-over-top,
+.g-over-bottom {
+  position: absolute;
+  left: 0;
+  right: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  background: rgba(238, 228, 218, 0.73);
-  text-align: center;
-  color: #776e65;
-  z-index: 5;
-  border-radius: 6px;
+}
+
+.g-over-top {
+  top: 33.333%;
+  transform: translateY(-50%);
+  gap: 14px;
+}
+
+.g-over-bottom {
+  top: 62%;
+  transform: translateY(-50%);
+  gap: 22px;
 }
 
 .g-overlay.g-overlay-in {
@@ -520,19 +545,44 @@ button:active {
   display: none;
 }
 
-.g-overlay p {
-  margin: 0 0 16px;
-  font-size: 28px;
+.g-over-score-label {
+  margin: 0;
+  font-size: 13px;
   font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #bbada0;
+}
+
+.g-over-score {
+  margin: 0;
+  font-size: 52px;
+  font-weight: 800;
+  line-height: 1;
+  color: #776e65;
+}
+
+.g-over-msg {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: #8f7a66;
 }
 
 .g-overlay button {
-  background: #8f7a66;
+  box-sizing: border-box;
+  min-width: 168px;
+  min-height: 52px;
+  padding: 0 28px;
+  border-radius: 8px;
+  background: #ed995b;
   color: #f9f6f2;
-  min-height: 40px;
-  padding: 0 20px;
-  border-radius: 3px;
+  font-size: 20px;
   font-weight: 700;
+  line-height: 52px;
+}
+
+.g-overlay button:active {
+  background: #e08848;
 }
 
 @keyframes g-appear {
@@ -705,5 +755,128 @@ button:active {
 .feel-reset {
   width: 100%;
   background: #bbada0;
+}
+
+/* AMAZE 盘：自有尺寸，不改 .g-board / :root --g-* */
+.maze-root {
+  position: relative;
+  flex-shrink: 0;
+  background: #bbada0;
+  border-radius: 6px;
+  touch-action: none;
+  margin-top: var(--g-board-y, 0px);
+}
+
+.maze-root.hidden {
+  display: none;
+}
+
+.maze-root.g-nudge {
+  animation: g-nudge var(--g-nudge-ms, 140ms) cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+.maze-grid {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: repeat(var(--maze-cols, 7), var(--maze-cell, 46px));
+  grid-template-rows: repeat(var(--maze-rows, 9), var(--maze-cell, 46px));
+  gap: var(--maze-gap, 4px);
+  padding: var(--maze-gap, 4px);
+}
+
+.maze-cell {
+  border-radius: 3px;
+}
+
+.maze-void {
+  background: transparent;
+}
+
+.maze-floor {
+  background: rgba(238, 228, 218, 0.35);
+}
+
+.maze-block {
+  position: relative;
+  background: rgba(238, 228, 218, 0.62);
+}
+
+.maze-block::before,
+.maze-block::after {
+  content: '';
+  position: absolute;
+  left: 22%;
+  right: 22%;
+  top: 50%;
+  height: 3px;
+  margin-top: -1.5px;
+  background: #8f7a66;
+  border-radius: 1px;
+}
+
+.maze-block::before {
+  transform: rotate(45deg);
+}
+
+.maze-block::after {
+  transform: rotate(-45deg);
+}
+
+.maze-floor.maze-on {
+  background: #f2b179;
+}
+
+.maze-hero {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: visible;
+}
+
+.maze-tile {
+  position: absolute;
+  top: 0;
+  left: 0;
+  border-radius: 3px;
+  background: #f2b179;
+  box-shadow: inset 0 -4px 0 rgba(119, 110, 101, 0.15);
+}
+
+.maze-overlay {
+  pointer-events: auto;
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: rgba(250, 248, 239, 0.88);
+  text-align: center;
+  color: #776e65;
+  z-index: 50;
+  isolation: isolate;
+  border-radius: 6px;
+}
+
+.maze-overlay.hidden {
+  display: none;
+}
+
+.maze-over-msg {
+  font-size: 28px;
+  font-weight: 700;
+}
+
+.maze-retry {
+  margin-top: 16px;
+  min-width: 168px;
+  min-height: 52px;
+  padding: 0 28px;
+  border-radius: 8px;
+  background: #ed995b;
+  color: #f9f6f2;
+  font-size: 20px;
+  font-weight: 700;
 }
 
