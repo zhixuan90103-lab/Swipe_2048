@@ -17,6 +17,7 @@ import { nudgeBoard, paintBoard, slideDurationMs, type PaintAnim } from './view'
 type Mode = 'merge' | 'solo';
 
 const BEST_KEY = 'swipe2048.best';
+const SOLO_BEST_KEY = 'swipe2048.solo.best';
 
 export type Game2048Handle = {
   dispose: () => void;
@@ -80,32 +81,40 @@ export function startGame2048(opts: {
   let busy = false;
   let feel: Feel = loadFeelFor('merge');
   let best = Number(localStorage.getItem(BEST_KEY) || '0');
+  let soloBest = Number(localStorage.getItem(SOLO_BEST_KEY) || '0');
   let lockTimer = 0;
   let swipe: SwipeHandle;
   let pending:
     | { mode: 'merge'; state: BoardState; best: number }
-    | { mode: 'solo'; solo: SoloState }
+    | { mode: 'solo'; solo: SoloState; best: number }
     | null = null;
 
   const titleEl = uiRoot.querySelector('#g-title') as HTMLElement;
-  const scoresEl = uiRoot.querySelector('#g-scores') as HTMLElement;
   const introEl = uiRoot.querySelector('#g-intro') as HTMLElement;
   const settingsBtn = uiRoot.querySelector('#g-settings') as HTMLElement;
 
   const hud = () => {
-    const solo = mode === 'solo';
-    titleEl.textContent = solo ? '单块' : '2048';
-    titleEl.classList.toggle('g-logo-solo', solo);
-    scoresEl.style.visibility = solo ? 'hidden' : 'visible';
-    introEl.textContent = solo
+    const isSolo = mode === 'solo';
+    titleEl.textContent = isSolo ? '单块' : '2048';
+    titleEl.classList.toggle('g-logo-solo', isSolo);
+    introEl.textContent = isSolo
       ? '把方块滑到墙，一次滑到底。'
       : '合并这些数字以得到2048方块！';
-    scoreEl.textContent = String(state.score);
-    if (state.score > best) {
-      best = state.score;
-      localStorage.setItem(BEST_KEY, String(best));
+    if (isSolo) {
+      scoreEl.textContent = String(solo.score);
+      if (solo.score > soloBest) {
+        soloBest = solo.score;
+        localStorage.setItem(SOLO_BEST_KEY, String(soloBest));
+      }
+      bestEl.textContent = String(soloBest);
+    } else {
+      scoreEl.textContent = String(state.score);
+      if (state.score > best) {
+        best = state.score;
+        localStorage.setItem(BEST_KEY, String(best));
+      }
+      bestEl.textContent = String(best);
     }
-    bestEl.textContent = String(best);
     if (state.over) {
       overMsg.textContent = '没有可走的步了';
       overlay.classList.remove('hidden');
@@ -176,18 +185,21 @@ export function startGame2048(opts: {
   const tryDir = (dir: Dir) => {
     if (busy) return;
     if (mode === 'solo') {
-      const { state: next, moved } = moveSolo(solo, dir);
+      const { state: next, moved, scoreDelta } = moveSolo(solo, dir);
       if (!moved) {
         nudgeBoard(boardEl, feel.nudgeMs, dir);
         gameSfx.nudge();
         gameHaptics.nudge(feel.nudgeMs);
         return;
       }
-      if (swipe?.isHolding() && !pending) pending = { mode: 'solo', solo };
+      if (swipe?.isHolding() && !pending) {
+        pending = { mode: 'solo', solo, best: soloBest };
+      }
       solo = next;
       busy = true;
       const anim = paintAnim();
       render(true);
+      floatScore(scoreDelta);
       playBoardSfx(soloAsBoard(solo));
       const travel = slideDurationMs(soloAsBoard(solo), anim);
       window.clearTimeout(lockTimer);
@@ -306,7 +318,11 @@ export function startGame2048(opts: {
       if (!pending) return;
       window.clearTimeout(lockTimer);
       busy = false;
-      if (pending.mode === 'solo') solo = pending.solo;
+      if (pending.mode === 'solo') {
+        solo = pending.solo;
+        soloBest = pending.best;
+        localStorage.setItem(SOLO_BEST_KEY, String(soloBest));
+      }
       else {
         state = pending.state;
         best = pending.best;

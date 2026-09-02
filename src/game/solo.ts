@@ -5,16 +5,17 @@ export type SoloState = {
   y: number;
   id: number;
   previous: { x: number; y: number } | null;
+  score: number;
 };
 
 export function newSolo(): SoloState {
-  return { x: 1, y: 1, id: 1, previous: null };
+  return { x: 1, y: 1, id: 1, previous: null, score: 0 };
 }
 
 export function moveSolo(
   s: SoloState,
   dir: Dir,
-): { state: SoloState; moved: boolean } {
+): { state: SoloState; moved: boolean; scoreDelta: number } {
   const v = VECTORS[dir];
   let x = s.x;
   let y = s.y;
@@ -25,10 +26,18 @@ export function moveSolo(
     x = nx;
     y = ny;
   }
-  if (x === s.x && y === s.y) return { state: s, moved: false };
+  if (x === s.x && y === s.y) return { state: s, moved: false, scoreDelta: 0 };
+  const scoreDelta = Math.abs(x - s.x) + Math.abs(y - s.y);
   return {
-    state: { x, y, id: s.id, previous: { x: s.x, y: s.y } },
+    state: {
+      x,
+      y,
+      id: s.id,
+      previous: { x: s.x, y: s.y },
+      score: s.score + scoreDelta,
+    },
     moved: true,
+    scoreDelta,
   };
 }
 
@@ -44,7 +53,7 @@ export function soloAsBoard(s: SoloState): BoardState {
   };
   return {
     tiles: [tile],
-    score: 0,
+    score: s.score,
     won: false,
     over: false,
     nextId: s.id + 1,
