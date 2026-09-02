@@ -3,7 +3,8 @@
 配套：[AGENTS.md](../AGENTS.md) · [ENGINEERING.md](./ENGINEERING.md)
 
 > **已实现。** 桌面 WebAudio；iOS `plugins/native-audio/`。  
-> 现行唯一套装：UI SFX Minimal 短 tick（`public/sfx/v2/`）。合优先于滑；多组合并只播最高档；出手即播。
+> **音效1** `sfx/v2/` UI SFX Minimal 短 tick。  
+> **音效2** `sfx/v3/` iOS 长按图标那种干咔（~2 kHz / 90ms）。默认音效2。合优先于滑；出手即播。
 
 ## 1. 结论
 

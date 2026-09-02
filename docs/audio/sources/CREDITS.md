@@ -1,6 +1,7 @@
 # SFX sources
 
-现行：UI SFX Minimal（CC0，https://uisfx.com），`public/sfx/v2/`。合/滑=`snap` 按档变调；UI=`press`；回弹=`invalid-drop`。
+- **音效1** `sfx/v2/`：UI SFX Minimal（CC0，uisfx.com）。
+- **音效2** `sfx/v3/`：按主屏长按图标录音合成的短干咔（~2 kHz / 90ms）。`scripts/synth-ios-pop.py`。
 
 | 槽 | 角色 |
 |----|------|

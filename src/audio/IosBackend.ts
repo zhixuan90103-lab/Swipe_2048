@@ -1,5 +1,5 @@
 import { Capacitor, registerPlugin } from '@capacitor/core';
-import { preloadItems, sfxBufferId, type SfxEvent } from './AudioCatalog';
+import { SFX_PACKS, preloadItems, sfxBufferId, type SfxEvent, type SfxPack } from './AudioCatalog';
 
 type NativeAudioPlugin = {
   preloadCatalog(opts: {
@@ -14,13 +14,20 @@ type NativeAudioPlugin = {
 const NativeAudio = registerPlugin<NativeAudioPlugin>('NativeAudio');
 
 export class IosBackend {
+  private pack: SfxPack = 2;
+
+  setPack(pack: SfxPack): void {
+    this.pack = pack;
+  }
+
   async preload(): Promise<void> {
     if (!Capacitor.isPluginAvailable('NativeAudio')) {
       console.warn('[audio] NativeAudio plugin unavailable');
       return;
     }
+    const items = SFX_PACKS.flatMap((p) => preloadItems(p.id));
     try {
-      await NativeAudio.preloadCatalog({ items: preloadItems() });
+      await NativeAudio.preloadCatalog({ items });
     } catch (err) {
       console.warn('[audio] ios preload', err);
     }
@@ -37,7 +44,7 @@ export class IosBackend {
   flushSfx(events: SfxEvent[]): void {
     void NativeAudio.flushSfx({
       events: events.map((e) => ({
-        id: sfxBufferId(1, e.id, e.step),
+        id: sfxBufferId(this.pack, e.id, e.step),
         volume: e.volume,
         rate: 1,
       })),

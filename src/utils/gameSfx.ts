@@ -1,9 +1,9 @@
 /**
- * 唯一套装：短 UI tick。合优先于滑；多组合并只播最高档；合后滑沿用该档。
+ * 合优先于滑；多组合并只播最高档；合后滑沿用该档。出手即播。
  */
 
 import { audio } from '../audio/AudioManager';
-import { mergeStepFromValue } from '../audio/AudioCatalog';
+import { mergeStepFromValue, type SfxPack } from '../audio/AudioCatalog';
 
 const delays = new Set<number>();
 let phraseStep = 0;
@@ -25,6 +25,12 @@ function clamp(n: number, a: number, b: number): number {
 }
 
 export const gameSfx = {
+  getPack: () => audio.getPack(),
+  setPack(pack: SfxPack): void {
+    audio.setPack(pack);
+    audio.playSfx('merge', { volume: 0.9, step: 0 });
+  },
+
   slide(cells: number): void {
     const c = clamp(cells, 1, 3);
     audio.playSfx('slide', { volume: 0.7 + (c - 1) * 0.08, step: phraseStep });

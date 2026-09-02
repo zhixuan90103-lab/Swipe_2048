@@ -1,9 +1,11 @@
 import {
   SFX_BY_ID,
+  SFX_PACKS,
   isNoteId,
   preloadItems,
   sfxBufferId,
   type SfxEvent,
+  type SfxPack,
 } from './AudioCatalog';
 
 function assetUrl(path: string): string {
@@ -20,9 +22,24 @@ export class WebBackend {
   private voices = new Map<string, number>();
   private live: { src: AudioBufferSourceNode; gain: GainNode }[] = [];
   private loading = new Map<string, Promise<void>>();
+  private pack: SfxPack = 2;
+
+  setPack(pack: SfxPack): void {
+    this.pack = pack;
+    void this.ensurePack(pack);
+  }
+
+  async ensurePack(pack: SfxPack): Promise<void> {
+    await Promise.all(preloadItems(pack).map((it) => this.loadOne(it.id, it.path)));
+  }
 
   async preload(): Promise<void> {
-    await Promise.all(preloadItems().map((it) => this.loadOne(it.id, it.path)));
+    await this.ensurePack(this.pack);
+    void (async () => {
+      for (const p of SFX_PACKS) {
+        if (p.id !== this.pack) await this.ensurePack(p.id);
+      }
+    })();
   }
 
   private loadOne(key: string, path: string): Promise<void> {
@@ -59,9 +76,9 @@ export class WebBackend {
   flushSfx(events: SfxEvent[]): void {
     const ctx = this.ensureCtx();
     if (ctx.state === 'suspended') void ctx.resume();
-    const missing = events.some((e) => !this.buffers.has(sfxBufferId(1, e.id, e.step)));
+    const missing = events.some((e) => !this.buffers.has(sfxBufferId(this.pack, e.id, e.step)));
     if (missing) {
-      void this.preload().then(() => {
+      void this.ensurePack(this.pack).then(() => {
         for (const e of events) this.playOne(e);
       });
       return;
@@ -78,7 +95,7 @@ export class WebBackend {
   }
 
   private playOne(e: SfxEvent): void {
-    const key = sfxBufferId(1, e.id, e.step);
+    const key = sfxBufferId(this.pack, e.id, e.step);
     const buf = this.buffers.get(key);
     const ctx = this.ctx;
     const gainBus = this.sfxGain;

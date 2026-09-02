@@ -1,6 +1,7 @@
 /**
- * 现行唯一套装：短 UI tick（UI SFX Minimal / 音效2）。
- * 合优先于滑；多组合并只播最高档；出手即播。
+ * 音效1：UI SFX Minimal 短 tick（v2）
+ * 音效2：iOS 长按图标那种干咔（v3，~2 kHz / 90ms）
+ * 规则：合优先于滑；多组合并只播最高档；出手即播。
  */
 
 export const MAX_SFX_PER_FRAME = 8;
@@ -17,11 +18,27 @@ export type SfxId =
   | 'win'
   | 'ui';
 
-export type SfxPack = 1;
+export type SfxPack = 1 | 2;
 
-export const SFX_DIR = 'sfx/v2';
+export const SFX_PACKS: { id: SfxPack; label: string; dir: string; why: string }[] = [
+  {
+    id: 1,
+    label: '音效1 短tick',
+    dir: 'sfx/v2',
+    why: 'UI SFX Minimal。合优先于滑；4 / 8 / 16 升档。',
+  },
+  {
+    id: 2,
+    label: '音效2 长按',
+    dir: 'sfx/v3',
+    why: 'iOS 长按图标那种短、干的咔。合仍按档升音。',
+  },
+];
 
-/** 4→档0 … 2048→档9。相对 snap 升音，不用运行时变速。 */
+export function isSfxPack(n: number): n is SfxPack {
+  return n === 1 || n === 2;
+}
+
 export const MERGE_STEP_MAX = 9;
 
 export function mergeStepFromValue(value: number): number {
@@ -56,14 +73,19 @@ export function isNoteId(id: SfxId): boolean {
   return id === 'merge' || id === 'slide';
 }
 
-export function sfxPath(_pack: SfxPack, id: SfxId, step = 0): string {
-  if (isNoteId(id)) return `${SFX_DIR}/merge-${mergeFileStep(step)}.wav`;
-  return `${SFX_DIR}/${id}.wav`;
+function packDir(pack: SfxPack): string {
+  return SFX_PACKS.find((p) => p.id === pack)?.dir ?? 'sfx/v3';
 }
 
-export function sfxBufferId(_pack: SfxPack, id: SfxId, step = 0): string {
-  if (isNoteId(id)) return `tick_merge_${mergeFileStep(step)}`;
-  return `tick_${id}`;
+export function sfxPath(pack: SfxPack, id: SfxId, step = 0): string {
+  const dir = packDir(pack);
+  if (isNoteId(id)) return `${dir}/merge-${mergeFileStep(step)}.wav`;
+  return `${dir}/${id}.wav`;
+}
+
+export function sfxBufferId(pack: SfxPack, id: SfxId, step = 0): string {
+  if (isNoteId(id)) return `p${pack}_merge_${mergeFileStep(step)}`;
+  return `p${pack}_${id}`;
 }
 
 export function eventKey(id: SfxId, step = 0): string {
@@ -80,15 +102,15 @@ export type PreloadItem = {
   maxVoices: number;
 };
 
-export function preloadItems(): PreloadItem[] {
+export function preloadItems(pack: SfxPack): PreloadItem[] {
   const items: PreloadItem[] = [];
   for (const d of SFX_CATALOG) {
     if (d.id === 'slide') continue;
     if (d.id === 'merge') {
       for (let s = 0; s <= MERGE_STEP_MAX; s++) {
         items.push({
-          id: sfxBufferId(1, 'merge', s),
-          path: sfxPath(1, 'merge', s),
+          id: sfxBufferId(pack, 'merge', s),
+          path: sfxPath(pack, 'merge', s),
           volume: d.volume,
           cooldownMs: d.cooldownMs,
           maxVoices: 1,
@@ -96,8 +118,8 @@ export function preloadItems(): PreloadItem[] {
       }
     } else {
       items.push({
-        id: sfxBufferId(1, d.id),
-        path: sfxPath(1, d.id),
+        id: sfxBufferId(pack, d.id),
+        path: sfxPath(pack, d.id),
         volume: d.volume,
         cooldownMs: d.cooldownMs,
         maxVoices: d.maxVoices,

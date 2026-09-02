@@ -8,6 +8,8 @@ import {
   type FeelScheme,
   type SlideEase,
 } from './feel';
+import { SFX_PACKS, isSfxPack } from '../audio/AudioCatalog';
+import { gameSfx } from '../utils/gameSfx';
 
 export function mountFeelPanel(
   host: HTMLElement,
@@ -36,7 +38,10 @@ export function mountFeelPanel(
           <button type="button" data-scheme="1">手感1 距离</button>
           <button type="button" data-scheme="2">手感2 甩动</button>
         </div>
-        <p class="feel-why" style="margin:8px 0 0">音效：短 tick（合优先于滑；4 / 8 / 16 升档）。</p>
+        <div class="feel-schemes" id="feel-sfx" style="margin-top:8px">
+          ${SFX_PACKS.map((p) => `<button type="button" data-sfx="${p.id}">${p.label}</button>`).join('')}
+        </div>
+        <p class="feel-why" id="feel-sfx-why" style="margin:8px 0 0"></p>
       </div>
       <div class="feel-list" id="feel-list"></div>
       <button type="button" class="feel-reset" id="feel-reset">恢复默认</button>
@@ -57,6 +62,12 @@ export function mountFeelPanel(
     wrap.querySelectorAll('[data-scheme]').forEach((b) => {
       b.classList.toggle('on', Number((b as HTMLElement).dataset.scheme) === feel.scheme);
     });
+    const pack = gameSfx.getPack();
+    wrap.querySelectorAll('[data-sfx]').forEach((b) => {
+      b.classList.toggle('on', Number((b as HTMLElement).dataset.sfx) === pack);
+    });
+    const why = wrap.querySelector('#feel-sfx-why') as HTMLElement | null;
+    if (why) why.textContent = SFX_PACKS.find((p) => p.id === pack)?.why ?? '';
 
     for (const f of FEEL_FIELDS) {
       if (f.schemes && !f.schemes.includes(feel.scheme)) continue;
@@ -143,6 +154,15 @@ export function mountFeelPanel(
     if (id !== 'out' && id !== 'soft' && id !== 'linear') return;
     feel = { ...feel, slideEase: id };
     emit();
+  });
+
+  wrap.querySelector('#feel-sfx')!.addEventListener('click', (e) => {
+    const btn = (e.target as HTMLElement).closest('[data-sfx]') as HTMLElement | null;
+    if (!btn) return;
+    const n = Number(btn.dataset.sfx);
+    if (!isSfxPack(n)) return;
+    gameSfx.setPack(n);
+    paint();
   });
 
   wrap.querySelector('#feel-reset')!.addEventListener('click', () => {
