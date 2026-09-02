@@ -2,8 +2,8 @@
 
 配套：[AGENTS.md](../AGENTS.md) · [ENGINEERING.md](./ENGINEERING.md)
 
-> 本底座 **尚未实现音效**。下文是接入规范。  
-> 目标：真机 iOS 上连发 SFX **不卡帧、不卡声**。
+> **已实现。** 桌面 WebAudio；iOS `plugins/native-audio/`。  
+> 现行唯一套装：UI SFX Minimal 短 tick（`public/sfx/v2/`）。合优先于滑；多组合并只播最高档；出手即播。
 
 ## 1. 结论
 
@@ -155,15 +155,15 @@ JS 的 `flushSfx` **不要 await**。设置音量是人操作频率，可以另�
 
 ## 9. 接入清单
 
-不要先在 `main.ts` 里 `new Audio()`：
+现行接线：
 
-1. `src/audio/AudioCatalog.ts` — 先列真实会响的 id
-2. `src/audio/AudioBatcher.ts` — 纯逻辑：攒帧、去重、封顶
-3. `src/audio/AudioManager.ts` + WebBackend — 桌面先能响
-4. `plugins/native-audio/` + `IosBackend` — 真机再切原生
-5. Loading：`await audio.preload()`；玩法只 `audio.playSfx`
-6. 忙帧调用 `markBusyWindow` 降低每帧条数
-7. 触控仍走 `clientToDesign`；音效与震动可并列（`haptics.x()` 旁一行 `audio.playSfx`）
+1. `src/audio/AudioCatalog.ts` — `slide/merge/spawn/nudge/over/win/ui` × 音效1/2
+2. `src/audio/AudioBatcher.ts` — 攒帧、去重、封顶（有单测）
+3. `src/audio/AudioManager.ts` + WebBackend / IosBackend
+4. `plugins/native-audio/NativeAudioPlugin.swift` — `ios:bootstrap` 注册
+5. `src/utils/gameSfx.ts` — 具名 API；`game2048.ts` 按运动时刻机
+6. `main.ts`：`preload()` + 首次 pointer `unlock()`
+7. 资源：`public/sfx/*.wav`（合成纸/木短音，非 Freesound）
 
 刻意不要：
 

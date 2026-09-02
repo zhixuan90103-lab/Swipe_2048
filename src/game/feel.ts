@@ -41,9 +41,9 @@ export type Feel = {
   inputLockMs: number;
   /** 锁解开后，按住转向再出手还要再等多少毫秒 */
   rearmMs: number;
-  /** 无效滑时棋盘左右抖多远（设计 px） */
+  /** 无效滑时沿该次方向顶出去的距离（设计 px） */
   nudgePx: number;
-  /** 无效滑抖动持续（毫秒） */
+  /** 无效回弹整段时长（毫秒） */
   nudgeMs: number;
   /** 按住不抬、同一方向继续拖，是否再走一步 */
   sameDirRepeat: boolean;
@@ -60,7 +60,7 @@ export const FEEL_DEFAULT: Feel = {
   speedPxS: 400,
   axisRatio: 1.55,
   tileMoveMs: 60,
-  slideMs: 75,
+  slideMs: 70,
   slideEase: 'soft',
   appearMs: 200,
   mergePopMs: 120,
@@ -80,7 +80,7 @@ export const FEEL2_DEFAULT: Feel = {
   commitPx: 30,
   speedPxS: 200,
   tileMoveMs: 70,
-  slideMs: 75,
+  slideMs: 70,
   appearMs: 250,
   mergePopMs: 200,
   inputLockMs: 50,
@@ -160,7 +160,7 @@ export const FEEL_FIELDS: {
   {
     key: 'slideMs',
     label: '每格滑移',
-    why: '穿过 1 格的时间。走 3 格约 3 倍时长，比走 2 格晚到。默认 75ms/格。',
+    why: '穿过 1 格的时间。走 3 格约 3 倍时长，比走 2 格晚到。默认 70ms/格。',
     kind: 'range',
     min: 20,
     max: 200,

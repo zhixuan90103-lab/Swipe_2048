@@ -14,6 +14,7 @@ import {
 } from './adapt/design';
 import { mountDevicePreview } from './adapt/devicePreview';
 import { applyNativeClass, applySafeAreaCssVars } from './adapt/safeArea';
+import { audio } from './audio/AudioManager';
 import { createRenderer, resizeToDesign } from './create-renderer';
 import { startGame2048 } from './game/game2048';
 
@@ -54,6 +55,10 @@ async function boot(): Promise<void> {
     getViewSize: () => preview.getViewSize(),
   });
 
+  const unlock = () => audio.unlock();
+  window.addEventListener('pointerdown', unlock, { once: true, capture: true });
+  void audio.preload();
+
   const game = startGame2048({
     stage,
     uiRoot,
@@ -67,6 +72,7 @@ async function boot(): Promise<void> {
     'pagehide',
     () => {
       game.dispose();
+      audio.dispose();
       unwatch();
       preview.dispose();
       renderer.setAnimationLoop(null);

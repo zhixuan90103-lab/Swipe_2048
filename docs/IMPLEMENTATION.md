@@ -1,49 +1,57 @@
 # Swipe_2048 — 现行实现
 
-日期：2026-09-01（设置入口、原版顶栏对齐、`boardY` 20 后修订）。
+日期：**2026-09-01**。默认值以 `src/game/feel.ts` 的 `FEEL_DEFAULT` / `FEEL2_DEFAULT` 为准。
 
-手势：`docs/SWIPE-DESIGN.md`。方块运动：`docs/MOTION.md`。
+| 规范 | 文件 |
+|------|------|
+| 手势判定 | [SWIPE-DESIGN.md](./SWIPE-DESIGN.md) |
+| 方块怎么动 | [MOTION.md](./MOTION.md) |
+| 默认值 / UI / 模式 | **本文** |
+| 文档索引 | [README.md](./README.md) |
+
+代码与文档冲突时改其中一侧，不要并列两套默认。本地存过手感时，面板点 **恢复默认** 才回到下表。
 
 ---
 
 ## 1. 产品
 
-TypeScript + Three.js WebGPU + Vite + Capacitor iOS。设计空间 **390×844**。Bundle ID `com.wangzhixuan.swipe2048`。Dev `http://127.0.0.1:5204/`。
+TypeScript + Three.js WebGPU + Vite + Capacitor iOS。设计空间 **390×844**。`appId` `com.wangzhixuan.swipe2048`。Dev `http://127.0.0.1:5204/`。
 
 | 模式 | 规则 | 默认手感 |
 |------|------|----------|
-| **2048**（`merge`） | 标准 4×4 合并；仅 `moved` 才出新块 | **手感2 甩动** |
-| **单块**（`solo`） | 同一 4×4，一颗块滑到墙；动画恒速 | **手感1 距离** |
+| **2048**（`merge`） | 4×4 合并；仅 `moved` 才出新块 | **手感2 甩动** |
+| **单块**（`solo`） | 同一 4×4，一颗块滑到墙 | **手感1 距离** |
 
 输入：手写 **Pan → 离散四向**。滑距 ≠ 停点。不用系统 UISwipe。
 
-UI 对齐中文原版 2048 画面（`docs/UI-ORIGINAL.md`）。  
-**黄块**切 2048/单块；**菜单**新局；**设置**打开手感面板。无底部「手感」按钮。
+UI 对齐中文原版 2048（[UI-ORIGINAL.md](./UI-ORIGINAL.md)）。  
+**黄块**切模式；**菜单**新局；**设置**开手感面板。
 
-底座硬约定见 `AGENTS.md`（`base: './'`、Safe Area 只走 CSS、UI 只挂 `#ui-root`、无 WebGPU 失败）。
+底座约定见根目录 `AGENTS.md`。
 
 ---
 
-## 2. 操作原理（两层）
+## 2. 操作（认方向 vs 出不出手）
 
-**认方向**（两套相同）→ **出不出手**（两套不同）。
+两套手感 **认方向相同**，**出不出手不同**。
 
-1. **死区 `slopPx`**：防按下抖动。小于此值不当滑。  
-2. **段位移认横竖**：从本段原点到当前点。主轴 ≥ 副轴 × `axisRatio` 才锁轴。太斜：**等，不清段**。出手前副轴明显更强可 relock。  
-3. **出手清段**（`setTranslation(0)`）：原点跳到当前点。按住可转向。斜尾不带进下一手。  
-4. 方向看 **整段位移**，不用轨迹 LERP、不用瞬时速度、不用 coalesced。
+1. **死区 `slopPx`**：小于此值不当滑。  
+2. **段位移认横竖**：主轴 ≥ 副轴 × `axisRatio` 才锁轴。太斜：等，不清段。  
+3. **出手清段**：原点跳到当前点，按住可转向。  
+4. 方向看 **整段位移**，不用轨迹 LERP、不用速度判向。
 
 | | 手感1 距离 | 手感2 甩动 |
 |--|--|--|
-| 用户 | 慢划、想清楚 | 不要慢划误触 |
-| 出手 | 沿已锁轴 ≥ `commitPx` | 沿轴 ≥ `commitPx` **且** 轴上 80ms 窗速度 ≥ `speedPxS` |
-| 速度 | 不参与 | 窗净位移/时间，只看锁轴 |
-| 慢但方向清楚 | 距离够就走 | **不走棋**（方向仍可已锁） |
+| 默认模式 | 单块 | 2048 |
+| 出手 | 沿锁轴 ≥ `commitPx` | 沿轴 ≥ `commitPx` **且** 轴上 80ms 窗速度 ≥ `speedPxS` |
+| 慢但方向清楚 | 距离够就走 | **不走棋** |
 | 按住 | 可转向；`sameDirRepeat` 可连走 | **每次按下只一步** |
 
 `pointercancel` 不断按住。busy 时不判定。全屏 window pointer。
 
-测试：`npm test`（`swipeSegment` + `swipeVelocity`）。
+底边系统手势：原生 `preferredScreenEdgesDeferringSystemGestures = .bottom`。底缘按下不走棋。本按下已走棋且未抬手、800ms 内进后台 → **撤回该步**。
+
+测试：`npm test`（`swipeSegment` + `swipeVelocity` + `motion`）。
 
 ---
 
@@ -51,83 +59,116 @@ UI 对齐中文原版 2048 画面（`docs/UI-ORIGINAL.md`）。
 
 | 文件 | 职责 |
 |------|------|
-| `src/game/swipeSegment.ts` | `evaluateSegment` / `dirFromDelta` / 抬手 invalid 谓词 |
+| `src/game/swipeSegment.ts` | 段判定纯函数 |
 | `src/game/swipeVelocity.ts` | 80ms 速度窗 |
-| `src/game/swipeInput.ts` | Pointer、capture、cancel、缩放、`applyDecision` |
-| `src/game/feel.ts` | 旋钮、两套默认、按模式存储 |
-| `src/game/feelPanel.ts` | `#feel-panel` |
-| `src/game/game2048.ts` | 模式、HUD、busy、手感绑定 |
-| `src/game/board.ts` | `SIZE=4` 合并 |
+| `src/game/swipeInput.ts` | Pointer、后台撤回、底缘 |
+| `src/game/feel.ts` | 旋钮与两套默认 |
+| `src/game/feelPanel.ts` | 设置表 |
+| `src/game/game2048.ts` | 模式、HUD、busy |
+| `src/game/board.ts` | 4×4 合并 |
 | `src/game/solo.ts` | 单块 |
-| `src/game/motion.ts` | 滑移/合并/字号纯函数（`docs/MOTION.md`） |
+| `src/game/motion.ts` | 滑移/合并/字号纯函数 |
 | `src/game/tilePool.ts` | 棋盘 DOM 池 |
-| `src/game/view.ts` | 把状态画到池里的块 |
-| `src/style.css` | 原版风布局 + appear/pop keyframes |
+| `src/game/view.ts` | 画到池里 |
+| `src/style.css` | 布局 + appear/pop/nudge |
 
 ---
 
-## 4. 手感存储与默认
+## 4. 手感默认（现行）
 
-- 按模式：`localStorage swipe2048.feel.byMode`（`merge` / `solo`）。  
-- 旧键 `swipe2048.feel` 仍写一份镜像，**首次进模式**若 byMode 无记录则用下表，不拿旧全局覆盖。
+存储：`localStorage swipe2048.feel.byMode`（`merge` / `solo`）。旧键 `swipe2048.feel` 只作镜像；某模式首次进入用下表，不拿旧全局覆盖。
 
-**手感1**（单块默认）`FEEL_DEFAULT`：
+切模式加载该模式上次手感。「恢复默认」只恢复 **当前 scheme**。切 scheme 时保留死区、轴比、动画锁、棋盘位置与大小。
+
+`slopPx ≥ commitPx`：锁轴帧可能立刻 fire。面板不自动纠正。
+
+### 手感1（单块默认）`FEEL_DEFAULT`
 
 | 键 | 默认 | 作用 |
 |----|------|------|
 | scheme | 1 | 距离出手 |
-| slopPx | 10 | 点按死区 / 开始锁轴 |
+| slopPx | 10 | 点按死区 |
 | commitPx | 16 | 沿锁轴出手 |
-| speedPxS | 400 | 手感1 不用 |
+| speedPxS | 400 | 本套不用 |
 | axisRatio | 1.55 | 主轴/副轴 |
-| tileMoveMs | 60 | 每格 ms（仅单块） |
-| slideMs | **75** | 2048 每格滑移 |
+| tileMoveMs | 60 | 单块每格 ms |
+| slideMs | **70** | 2048 每格滑移 |
 | slideEase | **soft** | 更柔 / 先快后慢 / 匀速 |
-| appearMs | 200（手感2 **250**） | 新块出现 |
-| mergePopMs | 120（手感2 **200**） | 合并弹 |
-| inputLockMs | 10 | 动画后再锁输入 |
-| rearmMs | 10 | 锁开后再等（可 0） |
+| appearMs | 200 | 新块出现 |
+| mergePopMs | 120 | 合并弹 |
+| inputLockMs | 10 | 动画后再锁 |
+| rearmMs | 10 | 锁开后再等 |
 | nudgePx / nudgeMs | **5 / 350** | 沿滑动方向回弹 |
 | sameDirRepeat | false | 同向连走 |
 | boardY | **0** | 棋盘上下（正下负上） |
-| boardScale | **1.1** | 棋盘整体缩放 |
+| boardScale | **1.1** | 棋盘缩放（1 = 328px 宽） |
 
-**手感2**（2048 默认）在手感1 上改为：`scheme 2`，`commitPx 30`，`speedPxS 200`，`tileMoveMs 70`，`slideMs 75`，`appearMs 250`，`mergePopMs 200`，`inputLockMs 50`，`rearmMs 0`。
+### 手感2（2048 默认）`FEEL2_DEFAULT`
 
-切 2048 / 单块会加载该模式上次手感。面板「恢复默认」只恢复 **当前 scheme** 的默认。切 scheme 时保留动画锁、死区、轴比、棋盘位置与大小。
+在手感1 上只改这些：
 
-`slopPx ≥ commitPx`：锁轴帧可能立刻 fire。面板不自动纠正。
+| 键 | 值 |
+|----|----|
+| scheme | 2 |
+| commitPx | 30 |
+| speedPxS | 200 |
+| tileMoveMs | 70 |
+| slideMs | **70** |
+| appearMs | **250** |
+| mergePopMs | **200** |
+| inputLockMs | 50 |
+| rearmMs | 0 |
+
+`slideEase` 仍为 **soft**。
 
 ---
 
 ## 5. UI
 
-- 布局按 `docs/UI-ORIGINAL.md`：标题 **104²**，分数 **93×92**，按钮 **93×28** `#ed995b` 与分数盒左右对齐。  
-- **点黄块** ↔ 2048 / 单块（字变为「2048」或「单块」）。滑动手势忽略 `#g-title`。  
-- **菜单** = 新局。  
-- **设置** = 打开/关闭设置表。2048：每格滑移、曲线、出现、合并弹。单块：每格用时。运动模型见 `MOTION.md`。  
-- 说明：合并这些数字以得到2048方块！  
-- 棋盘格 72、缝 8 × `boardScale`（默认 **1.1**）；`boardY` 默认 **0**。  
-- 结束遮罩盖在棋盘上；出现时 **800ms fade、delay 1200ms**（等滑移+pop 演完）。
+- 顶栏：[UI-ORIGINAL.md](./UI-ORIGINAL.md) — 标题 **104²**，分数 **93×92**，按钮 **93×28** `#ed995b` 与分数盒左右对齐。  
+- **点黄块** ↔ 2048 / 单块。滑动忽略 `#g-title`。  
+- **菜单** = 新局。**设置** = 手感表。  
+- 棋盘格 72、缝 8 × `boardScale`（**1.1**）；`boardY` **0**。  
+- 结束遮罩：800ms fade，delay 1200ms。
 
-## 5.2 方块动画
-
-规范全文：[MOTION.md](./MOTION.md)。2048 默认：75ms/格、更柔、出现 250ms、合并弹 200ms、峰值 1.1。
-
-## 5.1 近期相对上次规范的改动
-
-| 项 | 现在 |
-|----|------|
-| 模式切换 | 只走左上黄块 |
-| 手感入口 | 右上「设置」；无独立手感按钮 |
-| 顶栏尺寸 | 对齐原版实测（104 / 93×92 / 93×28） |
-| 按钮色 | `#ed995b` |
-| `boardY` | 默认 **0** |
-| `boardScale` | 默认 **1.1** |
+设置项：2048 显示每格滑移、曲线、出现、合并弹；单块显示每格用时。模型见 [MOTION.md](./MOTION.md)。
 
 ---
 
-## 6. 踩过的坑
+## 6. 方块运动（摘要）
+
+全文：[MOTION.md](./MOTION.md)。
+
+- 时长 = 格数 × 每格毫秒；整段一条曲线。2048 默认 **70ms/格、更柔**。  
+- 合并：新数字从较远源块滑来，弹 `1 → 1.1 → 1`。  
+- 新块等最远块到位再 appear（2048 默认 250ms）。  
+- 无效：整盘 **沿该次滑动方向** 回弹（5px / 350ms，幅度先大后小）。  
+- DOM 池：16 块 + 分数 `+N`。
+
+---
+
+## 7. 近期改动（相对最初底座 demo）
+
+按主题，不是按 commit。
+
+| 主题 | 现在 |
+|------|------|
+| 玩法 | 2048 + 单块；黄块切换 |
+| 手势 | 段锁轴 + 两套出手（距离 / 甩动） |
+| 每格滑移 | **70ms**（曾 80 → 75 → 70） |
+| 滑移曲线 | `slideEase`：soft / out / linear |
+| 出现 / 合并弹 | 手感2：250ms / 200ms |
+| 棋盘 | `boardScale` **1.1**，`boardY` **0**（曾 1.09 / 20） |
+| 无效反馈 | 沿滑动轴回弹，不是左右抖 |
+| 运动代码 | `motion.ts` + `tilePool.ts` |
+| HUD | 对齐原版截图；原「排行榜」= 设置 |
+| 系统手势 | 推迟底边；后台中断撤回未抬手的一步 |
+| 图标 | `public/favicon.png` 等 |
+| 音效 | 轻 pop 一套（滑够响，合略高）；一步一声 |
+
+---
+
+## 8. 踩过的坑
 
 | 现象 | 处理 |
 |------|------|
@@ -136,20 +177,22 @@ UI 对齐中文原版 2048 画面（`docs/UI-ORIGINAL.md`）。
 | 长按斜向反轴 | **出手时** consume，不要等 settle |
 | cancel 后失灵 | holding 保持；新 pointer 再 grab |
 | 按住动画飞 | settle consume + reflow |
-| 滑去后台也走了棋 | 原生 defer 底边 + 底缘按下不走棋 + 800ms 内进后台撤回（K14/K15） |
+| 滑去后台也走了棋 | defer 底边 + 底缘不走棋 + 800ms 内进后台撤回 |
+| 改了默认仍是旧值 | localStorage 手感；点「恢复默认」 |
 | 玩家口述当规范 | 口述是现象；像素只引 A/B |
 
 ---
 
-## 7. 刻意不做
+## 9. 刻意不做
 
 - Android；WebGL 回退；系统 UISwipe  
 - 用速度/轨迹 LERP **判方向**  
-- 手感2 做成 Hammer「必须松手才认」  
-- 热路径 `new Audio()`（见 `AUDIO.md`）
+- 手感2 做成「必须松手才认」  
+- 整盘固定滑移时长  
+- 热路径 `new Audio()`（音效走 catalog + batcher）
 
 ```
 npm run dev     # 127.0.0.1:5204
 npm run test
-npm run ios     # build + cap sync + 开 Xcode
+npm run ios
 ```

@@ -13,7 +13,7 @@
 
 - **手感1**：本文判定 + 沿轴 `commit` 出手。单块模式默认。  
 - **手感2**：同一套认方向；出手再加 **轴上 80ms 窗速度 ≥ speedPxS**；`lastDir !== null` 则本按下不再 fire。2048 模式默认。速度 **不判向**。  
-- 旋钮已多于重构时的 9 个（含 `scheme`、`speedPxS`、`boardY`、`boardScale`）。默认见 `IMPLEMENTATION.md`（`boardY` 20，`boardScale` 1.09）。  
+- 旋钮含 `scheme`、`speedPxS`、`slideMs`、`slideEase`、`boardY`、`boardScale` 等。默认以 `IMPLEMENTATION.md` 为准（现行：`slideMs` 70，`boardY` 0，`boardScale` 1.1）。  
 - 轨迹不做线性插值来认方向（弦 = 段位移）。  
 - 黄块切模式；设置打开手感表。
 
@@ -31,7 +31,7 @@
 
 - 玩法：`merge`（标准 2048）+ `solo`（一颗块滑到墙，时长 = 格数 × `tileMoveMs`）。
 - 输入：全屏 `window` Pointer Events → 离散 `Dir`（0 上 / 1 右 / 2 下 / 3 左）。
-- 手感：`localStorage` key `swipe2048.feel`，面板 `#feel-panel`。
+- 手感：`localStorage` `swipe2048.feel.byMode`，面板 `#feel-panel`。默认见 `IMPLEMENTATION.md`。
 - 底座：390×844 设计 px，UI 只挂 `#ui-root`，`vite base: './'`，无 WebGPU 不回退。
 
 ### 痛点（重构必须修）

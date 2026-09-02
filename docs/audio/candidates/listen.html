@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="zh">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Swipe 2048 · 音效材质对照</title>
+  <style>
+    :root { --bg:#faf8ef; --ink:#776e65; --muted:#bbada0; --tile:#eee4da; --accent:#ed995b; --gold:#edc22e; }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family: system-ui, sans-serif; background:var(--bg); color:var(--ink); }
+    main { max-width: 720px; margin: 0 auto; padding: 28px 20px 80px; }
+    h1 { font-size: 22px; margin: 0 0 8px; }
+    .lede { color: var(--muted); font-size: 14px; line-height: 1.5; margin: 0 0 24px; }
+    section { background: var(--tile); border-radius: 12px; padding: 16px 16px 8px; margin-bottom: 16px; }
+    h2 { font-size: 16px; margin: 0 0 4px; }
+    .why { font-size: 13px; color: #8f7a66; margin: 0 0 12px; }
+    .row { display:flex; align-items:center; gap:10px; padding: 8px 0; border-top: 1px solid rgba(119,110,101,.12); }
+    .role { width: 72px; flex: none; font-size: 12px; font-weight: 700; color:#8f7a66; }
+    audio { flex: 1; height: 32px; }
+    .name { font-size: 11px; color: var(--muted); width: 140px; flex: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .gold { background: #edc22e; }
+    .paper { background: #eee4da; }
+    .kal { background: #f2b179; }
+    .mut { background: #fceee0; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>三套材质，对着画面听</h1>
+  <p class="lede">D 太嘈杂。现在听 <b>E 干净塑料</b>：合成短「嗒」，没有房间、没有摩擦。对照「D 原声 vs 削干净」。</p>
+
+  <section class="gold">
+    <h2>现行（游戏里）</h2>
+    <p class="why">whoosh + ping。对照用。</p>
+    <div class="row"><span class="role">滑</span><audio controls src="../../../public/sfx/v1/slide.wav"></audio><span class="name">v1/slide</span></div>
+    <div class="row"><span class="role">合</span><audio controls src="../../../public/sfx/v1/merge.wav"></audio><span class="name">v1/merge</span></div>
+    <div class="row"><span class="role">落</span><audio controls src="../../../public/sfx/v1/spawn.wav"></audio><span class="name">v1/spawn</span></div>
+  </section>
+
+  <section class="gold">
+    <h2>E · 干净塑料（新）</h2>
+    <p class="why">同一气质，去掉沙沙声。合成体音 + 极短钝头。滑几乎无纹理。</p>
+    <div class="row"><span class="role">滑</span><audio controls src="E-clean/slide_thock.wav"></audio><span class="name">slide thock</span></div>
+    <div class="row"><span class="role">合</span><audio controls src="E-clean/merge_thock.wav"></audio><span class="name">merge thock</span></div>
+    <div class="row"><span class="role">合更干</span><audio controls src="E-clean/merge_dry.wav"></audio><span class="name">merge dry（无噪声）</span></div>
+    <div class="row"><span class="role">落</span><audio controls src="E-clean/spawn_thock.wav"></audio><span class="name">spawn thock</span></div>
+    <div class="row"><span class="role">D削干净</span><audio controls src="E-clean/place_cleaned.wav"></audio><span class="name">546119 低通后</span></div>
+    <div class="row"><span class="role">偏UI</span><audio controls src="E-clean/384187_Click Tickwav.mp3"></audio><span class="name">384187 tick</span></div>
+    <div class="row"><span class="role">偏电子</span><audio controls src="E-clean/634690_Lil Pip.mp3"></audio><span class="name">634690 pip（对照：太游戏）</span></div>
+  </section>
+
+  <section class="kal">
+    <h2>D · 塑料方块玩具（嘈杂对照）</h2>
+    <p class="why">棋盘滑块 + 塑料扣。滑是摩擦到位，合是轻轻咬住，不是乐器。</p>
+    <div class="row"><span class="role">滑</span><audio controls src="D-plastic/546118_Piece Slidemp3.mp3"></audio><span class="name">546118 piece slide</span></div>
+    <div class="row"><span class="role">合</span><audio controls src="D-plastic/546120_Piece Capturemp3.mp3"></audio><span class="name">546120 capture</span></div>
+    <div class="row"><span class="role">落</span><audio controls src="D-plastic/546119_Piece Placementmp3.mp3"></audio><span class="name">546119 place</span></div>
+    <div class="row"><span class="role">合更塑</span><audio controls src="D-plastic/751087_Mechanical Plastic Click 09.mp3"></audio><span class="name">751087 plastic click</span></div>
+    <div class="row"><span class="role">合盖</span><audio controls src="D-plastic/211178_Plastic lid tap 1wav.mp3"></audio><span class="name">211178 lid tap</span></div>
+    <div class="row"><span class="role">合乐高</span><audio controls src="D-plastic/670000_Lego Click short.mp3"></audio><span class="name">670000 lego short</span></div>
+    <div class="row"><span class="role">合更短</span><audio controls src="D-plastic/233649_LEGO Click 1.mp3"></audio><span class="name">233649 lego click</span></div>
+    <div class="row"><span class="role">落石</span><audio controls src="D-plastic/351518_chess_move_on_alabasterwav.mp3"></audio><span class="name">351518 alabaster</span></div>
+    <div class="row"><span class="role">备选滑</span><audio controls src="D-plastic/486585_Rubik Cube Turn - 9.mp3"></audio><span class="name">486585 rubik（可能太吵）</span></div>
+  </section>
+
+  <section class="paper">
+    <h2>A · 纸牌</h2>
+    <p class="why">扑克在桌上挪、拍。最贴画面材质，几乎没乐感。</p>
+    <div class="row"><span class="role">滑</span><audio controls src="A-paper/571581_Playing Card Slide Right.mp3"></audio><span class="name">571581 slide</span></div>
+    <div class="row"><span class="role">合</span><audio controls src="A-paper/404015_cardwav.mp3"></audio><span class="name">404015 tap</span></div>
+    <div class="row"><span class="role">落</span><audio controls src="A-paper/536784_Dealogg.mp3"></audio><span class="name">536784 deal</span></div>
+    <div class="row"><span class="role">备选滑</span><audio controls src="A-paper/536764_Tossogg.mp3"></audio><span class="name">536764 toss</span></div>
+    <div class="row"><span class="role">备选合</span><audio controls src="A-paper/120508_1cardswav.mp3"></audio><span class="name">120508 flick</span></div>
+  </section>
+
+  <section class="kal">
+    <h2>B · 暖琴（kalimba / 木琴）</h2>
+    <p class="why">合并有音高、像「解开」。滑仍应极轻；这套先听合并气质。</p>
+    <div class="row"><span class="role">合</span><audio controls src="B-kalimba/536549_Kalimba C3.mp3"></audio><span class="name">536549 C3</span></div>
+    <div class="row"><span class="role">合轻</span><audio controls src="B-kalimba/70675_SanzAnais 79 G4 mezzopianoaif.mp3"></audio><span class="name">70675 G4 mp</span></div>
+    <div class="row"><span class="role">落</span><audio controls src="B-kalimba/204640_Low Intesity G4wav.mp3"></audio><span class="name">204640 xylo G4</span></div>
+    <div class="row"><span class="role">备选</span><audio controls src="B-kalimba/204634_Xylophone E3wav.mp3"></audio><span class="name">204634 E3</span></div>
+  </section>
+
+  <section class="mut">
+    <h2>C · 闷弦</h2>
+    <p class="why">钢琴闷拨，暖、短、不亮。比纸牌更「设计」，比 kalimba 更不甜。</p>
+    <div class="row"><span class="role">合</span><audio controls src="C-muted/155850_Upright Piano Pizz E Dull 1wav.mp3"></audio><span class="name">155850 pizz</span></div>
+    <div class="row"><span class="role">合2</span><audio controls src="C-muted/155852_Upright Piano Pizz E Dull 2wav.mp3"></audio><span class="name">155852 pizz2</span></div>
+    <div class="row"><span class="role">落</span><audio controls src="C-muted/148772_piano_string_hit_short 5.mp3"></audio><span class="name">148772 hit</span></div>
+    <div class="row"><span class="role">UI</span><audio controls src="C-muted/288911_Click_Soft_01wav.mp3"></audio><span class="name">288911 click</span></div>
+    <div class="row"><span class="role">备选</span><audio controls src="C-muted/571629_Item Pickup.mp3"></audio><span class="name">571629 foam</span></div>
+  </section>
+</main>
+</body>
+</html>

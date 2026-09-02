@@ -4,7 +4,7 @@
 
 | 文件 | 角色 |
 |------|------|
-| **IMPLEMENTATION.md** | **产品与实现现状**（玩法、两套手感、UI、默认值、文件表） |
+| **IMPLEMENTATION.md** | **产品与实现现状**（玩法、两套手感、UI、现行默认、改动摘要） |
 | **MOTION.md** | **方块怎么动**（速度模型、合并/出现、字号、对象池） |
 | **SWIPE-DESIGN.md** | 手势状态机（判定纯函数 + 事件层）。手感2 扩展见文首「现行产品」 |
 | **SWIPE-RESEARCH-2026-09.md** | 检索计划与结论：为何两套手感、速度怎么测 |
@@ -13,7 +13,7 @@
 | ENGINEERING.md | 底座打包/适配 |
 | MERGE.md | 双工程合并决策 |
 | HAPTICS.md | 震动接入 |
-| AUDIO.md | 音效方案（未实现） |
+| AUDIO.md | 音效接入（纸托盘 SFX；iOS 原生 / Web 预览） |
 | ENTRYPOINTS.md | 入口链 |
 | UI-ORIGINAL.md | 原版截图实测：尺寸/位置/颜色 |
 

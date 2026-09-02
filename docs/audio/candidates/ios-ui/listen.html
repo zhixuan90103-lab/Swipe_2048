@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="zh">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>iOS 短 tick 对照 · UI SFX</title>
+  <style>
+    :root { --bg:#faf8ef; --ink:#776e65; --muted:#bbada0; --tile:#eee4da; }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family: system-ui, sans-serif; background:var(--bg); color:var(--ink); }
+    main { max-width: 760px; margin: 0 auto; padding: 28px 20px 80px; }
+    h1 { font-size: 22px; margin: 0 0 8px; }
+    .lede { color: var(--muted); font-size: 14px; line-height: 1.5; margin: 0 0 24px; }
+    section { background: var(--tile); border-radius: 12px; padding: 16px 16px 8px; margin-bottom: 16px; }
+    h2 { font-size: 16px; margin: 0 0 4px; }
+    .why { font-size: 13px; color: #8f7a66; margin: 0 0 12px; }
+    .row { display:flex; align-items:center; gap:10px; padding: 8px 0; border-top: 1px solid rgba(119,110,101,.12); }
+    .role { width: 88px; flex: none; font-size: 12px; font-weight: 700; color:#8f7a66; }
+    audio { flex: 1; height: 32px; }
+    .name { font-size: 11px; color: var(--muted); width: 120px; flex: none; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>短、干净，像长按图标</h1>
+  <p class="lede">来源 <a href="https://uisfx.com">uisfx.com</a>，CC0。先听 Minimal（最像系统），再 Glass（更亮），Soft（更圆）。对照最底下音效1 钢琴。</p>
+
+  <section>
+    <h2>Minimal · 干、短</h2>
+    <p class="why">最接近 iOS 系统 tick。长按图标 ≈ long-press；更干脆用 press / snap。</p>
+    <div class="row"><span class="role">长按</span><audio controls src="minimal/long-press.mp3"></audio><span class="name">long-press</span></div>
+    <div class="row"><span class="role">按下</span><audio controls src="minimal/press.mp3"></audio><span class="name">press</span></div>
+    <div class="row"><span class="role">咬合</span><audio controls src="minimal/snap.mp3"></audio><span class="name">snap</span></div>
+    <div class="row"><span class="role">滑</span><audio controls src="minimal/swipe.mp3"></audio><span class="name">swipe</span></div>
+    <div class="row"><span class="role">选中/合</span><audio controls src="minimal/select.mp3"></audio><span class="name">select</span></div>
+    <div class="row"><span class="role">落下</span><audio controls src="minimal/drop.mp3"></audio><span class="name">drop</span></div>
+    <div class="row"><span class="role">成功</span><audio controls src="minimal/success.mp3"></audio><span class="name">success</span></div>
+    <div class="row"><span class="role">无效</span><audio controls src="minimal/invalid-drop.mp3"></audio><span class="name">invalid-drop</span></div>
+  </section>
+
+  <section>
+    <h2>Glass · 玻璃</h2>
+    <p class="why">更亮、偏 iPhone 玻璃。容易比 Minimal 尖一点。</p>
+    <div class="row"><span class="role">长按</span><audio controls src="glass/long-press.mp3"></audio><span class="name">long-press</span></div>
+    <div class="row"><span class="role">按下</span><audio controls src="glass/press.mp3"></audio><span class="name">press</span></div>
+    <div class="row"><span class="role">咬合</span><audio controls src="glass/snap.mp3"></audio><span class="name">snap</span></div>
+    <div class="row"><span class="role">滑</span><audio controls src="glass/swipe.mp3"></audio><span class="name">swipe</span></div>
+    <div class="row"><span class="role">选中/合</span><audio controls src="glass/select.mp3"></audio><span class="name">select</span></div>
+    <div class="row"><span class="role">落下</span><audio controls src="glass/drop.mp3"></audio><span class="name">drop</span></div>
+    <div class="row"><span class="role">成功</span><audio controls src="glass/success.mp3"></audio><span class="name">success</span></div>
+    <div class="row"><span class="role">无效</span><audio controls src="glass/invalid-drop.mp3"></audio><span class="name">invalid-drop</span></div>
+  </section>
+
+  <section>
+    <h2>Soft · 圆</h2>
+    <p class="why">更暖、更软，没那么「系统」。</p>
+    <div class="row"><span class="role">长按</span><audio controls src="soft/long-press.mp3"></audio><span class="name">long-press</span></div>
+    <div class="row"><span class="role">按下</span><audio controls src="soft/press.mp3"></audio><span class="name">press</span></div>
+    <div class="row"><span class="role">咬合</span><audio controls src="soft/snap.mp3"></audio><span class="name">snap</span></div>
+    <div class="row"><span class="role">滑</span><audio controls src="soft/swipe.mp3"></audio><span class="name">swipe</span></div>
+    <div class="row"><span class="role">选中/合</span><audio controls src="soft/select.mp3"></audio><span class="name">select</span></div>
+    <div class="row"><span class="role">无效</span><audio controls src="soft/invalid-drop.mp3"></audio><span class="name">invalid-drop</span></div>
+  </section>
+
+  <section>
+    <h2>对照 · 音效1 钢琴</h2>
+    <p class="why">现在游戏里的合/滑。听完上面再听这条，差在「尾巴」和「音高」。</p>
+    <div class="row"><span class="role">合 C</span><audio controls src="../../../public/sfx/v1/merge-00.wav"></audio><span class="name">merge-00</span></div>
+    <div class="row"><span class="role">合 E</span><audio controls src="../../../public/sfx/v1/merge-02.wav"></audio><span class="name">merge-02</span></div>
+    <div class="row"><span class="role">滑</span><audio controls src="../../../public/sfx/v1/slide.wav"></audio><span class="name">slide</span></div>
+    <div class="row"><span class="role">回弹</span><audio controls src="../../../public/sfx/v1/nudge.wav"></audio><span class="name">nudge</span></div>
+  </section>
+</main>
+</body>
+</html>

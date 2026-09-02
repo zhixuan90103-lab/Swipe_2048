@@ -18,10 +18,10 @@ index.html
   → main.ts
        → applyNativeClass / safeArea
        → createRenderer(#stage)
-       → demo scene
+       → 2048 DOM
        → mountDevicePreview → computeStageLayout → applyStageTransform
        → watchStageLayout
-       → haptics + HUD buttons
+       → audio.preload + 首次 pointer unlock
 ```
 
 ## 3. DOM

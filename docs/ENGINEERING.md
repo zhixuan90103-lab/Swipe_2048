@@ -1,6 +1,6 @@
 # Engineering — portrait-webgpu-base
 
-配套：[AGENTS.md](../AGENTS.md) · [README.md](./README.md) · [IMPLEMENTATION.md](./IMPLEMENTATION.md) · [ENTRYPOINTS.md](./ENTRYPOINTS.md) · [MERGE.md](./MERGE.md) · [AUDIO.md](./AUDIO.md) · [HAPTICS.md](./HAPTICS.md) · [SWIPE-GESTURE.md](./SWIPE-GESTURE.md) · [SWIPE-SOURCES.md](./SWIPE-SOURCES.md)
+配套：[AGENTS.md](../AGENTS.md) · [README.md](./README.md) · [IMPLEMENTATION.md](./IMPLEMENTATION.md) · [MOTION.md](./MOTION.md) · [ENTRYPOINTS.md](./ENTRYPOINTS.md) · [MERGE.md](./MERGE.md) · [AUDIO.md](./AUDIO.md) · [HAPTICS.md](./HAPTICS.md)
 
 ## 1. 定位
 

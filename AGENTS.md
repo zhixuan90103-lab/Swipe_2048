@@ -23,7 +23,7 @@
 | Capacitor | `capacitor.config.ts`（`contentInset: never`） |
 | 构建 | `vite.config.ts`（**`base: './'`**） |
 | iOS 注入 | `scripts/bootstrap-ios.mjs` |
-| 音效方案（未实现） | `docs/AUDIO.md` |
+| 音效 | `docs/AUDIO.md` · `src/audio/*` · `src/utils/gameSfx.ts` |
 | 同手势调研 | `docs/SWIPE-GESTURE.md` |
 | 手势有效来源 | `docs/SWIPE-SOURCES.md` |
 | 四向手势状态机 | `docs/SWIPE-DESIGN.md` |
@@ -58,6 +58,7 @@
 ```bash
 npm install
 npm run dev           # http://127.0.0.1:5204/
+npm run test
 npm run build
 npm run cap:sync
 npm run ios:bootstrap # 首次 / 修插件

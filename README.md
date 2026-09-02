@@ -5,13 +5,12 @@
 | 文档 | 用途 |
 |------|------|
 | [AGENTS.md](./AGENTS.md) | AI / 新窗口第一入口 |
-| [docs/ENGINEERING.md](./docs/ENGINEERING.md) | 设计决策与踩坑 |
-| [docs/ENTRYPOINTS.md](./docs/ENTRYPOINTS.md) | 入口与调用链 |
-| [docs/MERGE.md](./docs/MERGE.md) | 双工程优点对照与合并说明 |
-| [docs/AUDIO.md](./docs/AUDIO.md) | 音效方案（预解码 + 每帧一批 + 原生池） |
-| [docs/HAPTICS.md](./docs/HAPTICS.md) | 震动如何一次接对（插件注册 + 玩法层） |
-| [docs/SWIPE-GESTURE.md](./docs/SWIPE-GESTURE.md) | 四向一步滑：合同、有效名单、美区 App、操作细节 |
-| [docs/SWIPE-SOURCES.md](./docs/SWIPE-SOURCES.md) | 手势检索有效来源与证据等级 |
+| [docs/README.md](./docs/README.md) | **docs 索引与规范优先级** |
+| [docs/IMPLEMENTATION.md](./docs/IMPLEMENTATION.md) | 现行玩法、手感默认、改动摘要 |
+| [docs/MOTION.md](./docs/MOTION.md) | 方块怎么动 |
+| [docs/ENGINEERING.md](./docs/ENGINEERING.md) | 底座打包 / 适配 |
+| [docs/HAPTICS.md](./docs/HAPTICS.md) | 震动接入 |
+| [docs/SWIPE-GESTURE.md](./docs/SWIPE-GESTURE.md) | 同手势族调研名单 |
 
 ## 30 秒上手
 

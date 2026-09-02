@@ -9,6 +9,8 @@ import {
 import { mountFeelPanel } from './feelPanel';
 import { moveSolo, newSolo, soloAsBoard, type SoloState } from './solo';
 import { attachSwipeInput, type SwipeHandle } from './swipeInput';
+import { maxTravelCells } from './motion';
+import { gameSfx } from '../utils/gameSfx';
 import { nudgeBoard, paintBoard, slideDurationMs, type PaintAnim } from './view';
 
 type Mode = 'merge' | 'solo';
@@ -157,19 +159,33 @@ export function startGame2048(opts: {
     hud();
   };
 
+  const playBoardSfx = (board: BoardState) => {
+    const merges = board.tiles.filter((t) => t.mergedFrom);
+    if (merges.length) {
+      const t = merges.reduce((a, b) => (a.value >= b.value ? a : b));
+      gameSfx.merge(t.value);
+      return;
+    }
+    const cells = Math.max(1, maxTravelCells(board));
+    gameSfx.slide(cells);
+  };
+
   const tryDir = (dir: Dir) => {
     if (busy) return;
     if (mode === 'solo') {
       const { state: next, moved } = moveSolo(solo, dir);
       if (!moved) {
         nudgeBoard(boardEl, feel.nudgeMs, dir);
+        gameSfx.nudge();
         return;
       }
       if (swipe?.isHolding() && !pending) pending = { mode: 'solo', solo };
       solo = next;
       busy = true;
+      const anim = paintAnim();
       render(true);
-      const travel = slideDurationMs(soloAsBoard(solo), paintAnim());
+      playBoardSfx(soloAsBoard(solo));
+      const travel = slideDurationMs(soloAsBoard(solo), anim);
       window.clearTimeout(lockTimer);
       lockTimer = window.setTimeout(() => {
         busy = false;
@@ -178,9 +194,11 @@ export function startGame2048(opts: {
       return;
     }
     if (state.over) return;
+    const wasWon = state.won;
     const { state: next, moved, scoreDelta } = applyMove(state, dir);
     if (!moved) {
       nudgeBoard(boardEl, feel.nudgeMs, dir);
+      gameSfx.nudge();
       return;
     }
     if (swipe?.isHolding() && !pending) {
@@ -188,9 +206,16 @@ export function startGame2048(opts: {
     }
     state = next;
     busy = true;
+    const anim = paintAnim();
     render(true);
     floatScore(scoreDelta);
-    const travel = slideDurationMs(state, paintAnim());
+    playBoardSfx(state);
+    if (state.won && !wasWon) {
+      const travel = slideDurationMs(state, anim);
+      window.setTimeout(() => gameSfx.win(), travel + 80);
+    }
+    if (state.over) gameSfx.over(1200);
+    const travel = slideDurationMs(state, anim);
     window.clearTimeout(lockTimer);
     lockTimer = window.setTimeout(() => {
       busy = false;
@@ -200,6 +225,7 @@ export function startGame2048(opts: {
 
   const reset = () => {
     busy = false;
+    gameSfx.clearPending();
     overlay.classList.add('hidden');
     if (mode === 'solo') solo = newSolo();
     else state = newGame();
@@ -214,10 +240,19 @@ export function startGame2048(opts: {
     reset();
   };
 
-  titleEl.addEventListener('click', () => setMode(mode === 'solo' ? 'merge' : 'solo'));
+  titleEl.addEventListener('click', () => {
+    gameSfx.ui();
+    setMode(mode === 'solo' ? 'merge' : 'solo');
+  });
 
-  uiRoot.querySelector('#g-new')!.addEventListener('click', reset);
-  uiRoot.querySelector('#g-retry')!.addEventListener('click', reset);
+  uiRoot.querySelector('#g-new')!.addEventListener('click', () => {
+    gameSfx.ui();
+    reset();
+  });
+  uiRoot.querySelector('#g-retry')!.addEventListener('click', () => {
+    gameSfx.ui();
+    reset();
+  });
 
   applyFeelCss(feel);
   render(false);
@@ -233,7 +268,10 @@ export function startGame2048(opts: {
     mode,
   );
 
-  settingsBtn.addEventListener('click', () => panel.toggle());
+  settingsBtn.addEventListener('click', () => {
+    gameSfx.ui();
+    panel.toggle();
+  });
 
   swipe = attachSwipeInput({
     target: stage,
@@ -241,7 +279,10 @@ export function startGame2048(opts: {
     isBlocked: () => busy || (mode === 'merge' && state.over),
     onMove: tryDir,
     onInvalid: (dir) => {
-      if (!busy) nudgeBoard(boardEl, feel.nudgeMs, dir);
+      if (!busy) {
+        nudgeBoard(boardEl, feel.nudgeMs, dir);
+        gameSfx.nudge();
+      }
     },
     onGestureCommit: () => {
       pending = null;
@@ -257,6 +298,7 @@ export function startGame2048(opts: {
         localStorage.setItem(BEST_KEY, String(best));
       }
       pending = null;
+      gameSfx.clearPending();
       render(false);
     },
   });
@@ -264,6 +306,7 @@ export function startGame2048(opts: {
   return {
     dispose: () => {
       window.clearTimeout(lockTimer);
+      gameSfx.clearPending();
       panel.dispose();
       swipe.dispose();
     },
