@@ -7,6 +7,7 @@ import { haptics } from './haptics';
 import {
   mergePulse,
   nudgePattern,
+  pulsePattern,
   slidePulse,
   type HapticPulse,
   type NudgeHapticPattern,
@@ -159,11 +160,17 @@ export const gameHaptics = {
   },
 
   slide(cells: number): void {
-    enqueue({ id: 'slide', pulse: slidePulse(cells, pack()) });
+    enqueue({
+      id: 'slide',
+      pattern: pulsePattern(slidePulse(cells, pack())),
+    });
   },
 
   merge(value: number): void {
-    enqueue({ id: 'merge', pulse: mergePulse(value, pack()) });
+    enqueue({
+      id: 'merge',
+      pattern: pulsePattern(mergePulse(value, pack())),
+    });
   },
 
   nudge(durationMs = 350): void {
@@ -183,7 +190,10 @@ export const gameHaptics = {
   },
 
   previewMerge(): void {
-    enqueue({ id: 'merge', pulse: mergePulse(4, pack()) });
+    enqueue({
+      id: 'merge',
+      pattern: pulsePattern(mergePulse(4, pack())),
+    });
   },
 
   clearPending(): void {

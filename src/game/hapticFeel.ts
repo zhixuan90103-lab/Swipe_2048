@@ -25,6 +25,8 @@ export type HapticFeel = {
   nudgeS: number;
   /** Continuous tail after the hit, 0 = off. */
   nudgeTailI: number;
+  /** Short decay after slide/merge transients, 0 = off. */
+  pulseTailI: number;
 };
 
 export const HAPTIC_FEEL_DEFAULT: HapticFeel = {
@@ -39,7 +41,11 @@ export const HAPTIC_FEEL_DEFAULT: HapticFeel = {
   nudgeBounceI: 0.4,
   nudgeS: 0.7,
   nudgeTailI: 0.14,
+  pulseTailI: 0.16,
 };
+
+/** Slide/merge aftertouch — short so combo slides do not rumble. */
+export const PULSE_TAIL_S = 0.07;
 
 /** Keep in sync with `@keyframes g-nudge` in style.css */
 export const NUDGE_HIT_T = 0.22;
@@ -132,6 +138,15 @@ export const HAPTIC_FIELDS: {
     key: 'slideS',
     label: '滑 锐度',
     why: '无合滑的质感。0.5–0.7 较稳。',
+    min: 0,
+    max: 1,
+    step: 0.01,
+    preview: 'slide',
+  },
+  {
+    key: 'pulseTailI',
+    label: '滑/合 短余韵',
+    why: '瞬态后约 70ms 衰减。一点点肉，连滑不会变成马达。0 关掉。',
     min: 0,
     max: 1,
     step: 0.01,
@@ -249,6 +264,53 @@ export function mergeAtStep(step: number, feel: HapticFeel = current): HapticPul
     intensity: lerp(feel.mergeIMin, feel.mergeIMax, w),
     sharpness: lerp(feel.mergeSMin, feel.mergeSMax, w),
   });
+}
+
+function appendShortTail(
+  events: NudgeHapticEvent[],
+  curves: NudgeHapticCurve[],
+  pulse: HapticPulse,
+  tailI: number,
+  start = 0,
+  duration = PULSE_TAIL_S,
+): void {
+  const i = clamp01(tailI);
+  if (i < 0.001) return;
+  events.push({
+    type: 'continuous',
+    relativeTime: start,
+    duration,
+    intensity: i,
+    sharpness: clamp01(pulse.sharpness * 0.7),
+    decayTime: 0.75,
+    releaseTime: 0.9,
+  });
+  curves.push({
+    parameterID: 'hapticIntensity',
+    relativeTime: start,
+    controlPoints: [
+      { relativeTime: 0, parameterValue: 1 },
+      { relativeTime: duration * 0.4, parameterValue: 0.4 },
+      { relativeTime: duration, parameterValue: 0 },
+    ],
+  });
+}
+
+export function pulsePattern(
+  pulse: HapticPulse,
+  feel: HapticFeel = current,
+): NudgeHapticPattern {
+  const events: NudgeHapticEvent[] = [
+    {
+      type: 'transient',
+      relativeTime: 0,
+      intensity: pulse.intensity,
+      sharpness: pulse.sharpness,
+    },
+  ];
+  const curves: NudgeHapticCurve[] = [];
+  appendShortTail(events, curves, pulse, feel.pulseTailI);
+  return { events, curves };
 }
 
 export function slidePulse(

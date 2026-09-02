@@ -4,7 +4,9 @@ import {
   HAPTIC_FEEL_DEFAULT,
   mergeAtStep,
   mergePulse,
+  PULSE_TAIL_S,
   nudgePattern,
+  pulsePattern,
   nudgePulse,
   slidePulse,
 } from './hapticFeel';
@@ -31,6 +33,14 @@ describe('hapticFeel', () => {
     assert.equal(mergeAtStep(0, d).intensity, lo.intensity);
     const midT = 4 / 9;
     assert.ok(Math.abs(mid.intensity - (d.mergeIMin + (d.mergeIMax - d.mergeIMin) * midT)) < 1e-6);
+  });
+
+  it('slide/merge add a short decaying tail', () => {
+    const p = pulsePattern(slidePulse(1, 2, d), d);
+    const tail = p.events.find((e) => e.type === 'continuous');
+    assert.ok(tail);
+    assert.equal(tail!.duration, PULSE_TAIL_S);
+    assert.ok(tail!.duration! < 0.12);
   });
 
   it('nudge uses its own sharpness', () => {
