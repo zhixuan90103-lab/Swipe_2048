@@ -12,9 +12,11 @@
 | **SWIPE-GESTURE.md** | 同手势族游戏名单（合同筛选） |
 | ENGINEERING.md | 底座打包/适配 |
 | MERGE.md | 双工程合并决策 |
-| HAPTICS.md | 震动接入 |
-| AUDIO.md | 音效接入（纸托盘 SFX；iOS 原生 / Web 预览） |
+| HAPTICS.md | 震动接入（插件怎么接上） |
+| **HAPTICS-RESEARCH.md** | 震动检索：iOS 官方、舒适、与声画同一感受 |
+| **HAPTICS-GAME.md** | **玩法震动实现方案**（事件、批处理、落点、验收） |
+| AUDIO.md | 音效：现行两套 + 接入/热路径 |
 | ENTRYPOINTS.md | 入口链 |
 | UI-ORIGINAL.md | 原版截图实测：尺寸/位置/颜色 |
 
-**规范优先级：** 手势判定以 `SWIPE-DESIGN.md` 为准；方块运动以 `MOTION.md` 为准；默认值、模式绑定、UI 以 `IMPLEMENTATION.md` 为准。代码与文档冲突时改文档或改代码，不要并列两套默认。
+**规范优先级：** 手势判定以 `SWIPE-DESIGN.md` 为准；方块运动以 `MOTION.md` 为准；默认值、模式绑定、UI 以 `IMPLEMENTATION.md` 为准；音效以 `AUDIO.md` 为准；玩法震动以 `HAPTICS-GAME.md` 为准。代码与文档冲突时改文档或改代码，不要并列两套默认。

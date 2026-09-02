@@ -1,14 +1,10 @@
-# SFX sources
+# SFX 来源
 
-- **音效1** `sfx/v2/`：UI SFX Minimal（CC0，uisfx.com）。
-- **音效2** `sfx/v3/`：按主屏长按图标录音合成的短干咔（~2 kHz / 90ms）。`scripts/synth-ios-pop.py`。
+运行时只打进包：`public/sfx/v2/`、`public/sfx/v3/`。
 
-| 槽 | 角色 |
-|----|------|
-| slide | 海绵/滚筒涂抹，能量 < ~700 Hz |
-| merge | 涂满：圆 pop，不变调 |
-| spawn | 更轻的 pop（玩法未接线） |
-| nudge | 更短、更暗的抹 |
-| ui | 极短湿 tap |
-| over | 两个下行 pop |
-| win | 两个略亮的 pop |
+| 套装 | 目录 | 来源 | 许可 |
+|------|------|------|------|
+| 音效1 短tick | `public/sfx/v2/` | [UI SFX](https://uisfx.com) Minimal：`snap`（合/滑升档）、`press`（UI）、`invalid-drop`（回弹）、`drop`、`success` | CC0 |
+| 音效2 长按 | `public/sfx/v3/` | `scripts/synth-ios-pop.py`，对照主屏长按图标 | 本仓库生成 |
+
+合档 wav：`merge-00.wav` … `merge-09.wav`（滑与合同文件，音量不同）。

@@ -576,6 +576,7 @@ button:active {
   }
 }
 
+/* Hit 22% / bounce 48% — keep in sync with NUDGE_HIT_T / NUDGE_BOUNCE_T */
 @keyframes g-nudge {
   0% {
     transform: translate(0, 0);

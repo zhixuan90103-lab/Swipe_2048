@@ -11,6 +11,7 @@ import { moveSolo, newSolo, soloAsBoard, type SoloState } from './solo';
 import { attachSwipeInput, type SwipeHandle } from './swipeInput';
 import { maxTravelCells } from './motion';
 import { gameSfx } from '../utils/gameSfx';
+import { gameHaptics } from '../utils/gameHaptics';
 import { nudgeBoard, paintBoard, slideDurationMs, type PaintAnim } from './view';
 
 type Mode = 'merge' | 'solo';
@@ -164,10 +165,12 @@ export function startGame2048(opts: {
     if (merges.length) {
       const t = merges.reduce((a, b) => (a.value >= b.value ? a : b));
       gameSfx.merge(t.value);
+      gameHaptics.merge(t.value);
       return;
     }
     const cells = Math.max(1, maxTravelCells(board));
     gameSfx.slide(cells);
+    gameHaptics.slide(cells);
   };
 
   const tryDir = (dir: Dir) => {
@@ -177,6 +180,7 @@ export function startGame2048(opts: {
       if (!moved) {
         nudgeBoard(boardEl, feel.nudgeMs, dir);
         gameSfx.nudge();
+        gameHaptics.nudge(feel.nudgeMs);
         return;
       }
       if (swipe?.isHolding() && !pending) pending = { mode: 'solo', solo };
@@ -199,6 +203,7 @@ export function startGame2048(opts: {
     if (!moved) {
       nudgeBoard(boardEl, feel.nudgeMs, dir);
       gameSfx.nudge();
+      gameHaptics.nudge(feel.nudgeMs);
       return;
     }
     if (swipe?.isHolding() && !pending) {
@@ -213,8 +218,12 @@ export function startGame2048(opts: {
     if (state.won && !wasWon) {
       const travel = slideDurationMs(state, anim);
       window.setTimeout(() => gameSfx.win(), travel + 80);
+      gameHaptics.win(travel + 80);
     }
-    if (state.over) gameSfx.over(1200);
+    if (state.over) {
+      gameSfx.over(1200);
+      gameHaptics.over(1200);
+    }
     const travel = slideDurationMs(state, anim);
     window.clearTimeout(lockTimer);
     lockTimer = window.setTimeout(() => {
@@ -226,6 +235,7 @@ export function startGame2048(opts: {
   const reset = () => {
     busy = false;
     gameSfx.clearPending();
+    gameHaptics.clearPending();
     overlay.classList.add('hidden');
     if (mode === 'solo') solo = newSolo();
     else state = newGame();
@@ -242,15 +252,18 @@ export function startGame2048(opts: {
 
   titleEl.addEventListener('click', () => {
     gameSfx.ui();
+    gameHaptics.ui();
     setMode(mode === 'solo' ? 'merge' : 'solo');
   });
 
   uiRoot.querySelector('#g-new')!.addEventListener('click', () => {
     gameSfx.ui();
+    gameHaptics.ui();
     reset();
   });
   uiRoot.querySelector('#g-retry')!.addEventListener('click', () => {
     gameSfx.ui();
+    gameHaptics.ui();
     reset();
   });
 
@@ -270,6 +283,7 @@ export function startGame2048(opts: {
 
   settingsBtn.addEventListener('click', () => {
     gameSfx.ui();
+    gameHaptics.ui();
     panel.toggle();
   });
 
@@ -282,6 +296,7 @@ export function startGame2048(opts: {
       if (!busy) {
         nudgeBoard(boardEl, feel.nudgeMs, dir);
         gameSfx.nudge();
+        gameHaptics.nudge(feel.nudgeMs);
       }
     },
     onGestureCommit: () => {
@@ -299,6 +314,7 @@ export function startGame2048(opts: {
       }
       pending = null;
       gameSfx.clearPending();
+      gameHaptics.clearPending();
       render(false);
     },
   });
@@ -307,6 +323,7 @@ export function startGame2048(opts: {
     dispose: () => {
       window.clearTimeout(lockTimer);
       gameSfx.clearPending();
+      gameHaptics.clearPending();
       panel.dispose();
       swipe.dispose();
     },

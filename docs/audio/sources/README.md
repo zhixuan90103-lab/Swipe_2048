@@ -1,7 +1,8 @@
-运行时 wav 在 `public/sfx/v1` … `v21`。
+调研 / 候选（不进 App 包）放本目录与 `docs/audio/candidates/`。
 
-- 1 木叩（原版）  
-- 2–6 清木 / 7–11 亮木 / 12–16 脆木 / 17–21 明叩  
-- 音调 A–E 为 C4–C5，木叩同族略清亮  
-  
+运行时 wav 只在：
 
+- `public/sfx/v2/` — 音效1
+- `public/sfx/v3/` — 音效2（默认）
+
+规范：[AUDIO.md](../../AUDIO.md)。

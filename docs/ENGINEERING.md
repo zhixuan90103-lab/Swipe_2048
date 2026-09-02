@@ -25,8 +25,12 @@ portrait-webgpu-base/
 │   │   ├── design.ts       # 390×844 · layout · clientToDesign
 │   │   ├── devicePreview.ts
 │   │   └── safeArea.ts
-│   └── utils/haptics.ts
-├── plugins/native-haptics/ # Swift 真源
+│   ├── audio/              # Catalog / Batcher / Manager / backends
+│   └── utils/
+│       ├── haptics.ts
+│       └── gameSfx.ts
+├── plugins/native-haptics/
+├── plugins/native-audio/
 └── scripts/bootstrap-ios.mjs
 ```
 
@@ -111,14 +115,15 @@ SceneDelegate.rootViewController = BridgeViewController()
 Swift **没有** `prepare`；引擎在 `load()` 启动。UIKit 反馈在主线程触发。验收用 HUD **点我震动**（`impact`）和状态行 `plugin: true`。  
 业务节奏（具名事件、cooldown、开关）写在游戏层，不要改插件除非新增原生方法。
 
-## 7b. Audio（尚未实现）
+## 7b. Audio（已实现）
 
-本仓库无播放代码。接入规范见 [AUDIO.md](./AUDIO.md)：
+现行产品与套装：[AUDIO.md](./AUDIO.md) §0。工程约束：
 
 - Loading **预解码**；热路径禁止 `new Audio()` / decode / 读盘
-- `AudioBatcher`：**每帧最多一次** Capacitor 桥
+- `AudioBatcher` 微任务 flush；iOS 每拍最多一次桥
 - iOS 生产走 `AVAudioEngine` + PCM 缓存 + PlayerNode 池；**禁止**静默 WebAudio
-- Catalog 管 cooldown / priority / maxVoices；忙帧再砍每帧条数
+- 真源 `plugins/native-audio/`，改完 `ios:bootstrap`
+- 运行时只打 `public/sfx/v2/`、`public/sfx/v3/`
 
 ## 8. iOS 工作流
 
@@ -148,3 +153,4 @@ npm run cap:sync
 | 2026-08-14 | 增加 AUDIO.md：音效不卡帧方案 |
 | 2026-08-14 | 增加 HAPTICS.md：震动一次接对 |
 | 2026-08-31 | 真机震动验通。根因：Capacitor 8 `SceneDelegate` 绕过 storyboard。bootstrap 现会改 SceneDelegate；HUD 用「点我震动」+ `plugin` 标志验收 |
+| 2026-09-02 | 音效落地：两套（短 tick / 长按咔），合优先于滑，出手即播。见 AUDIO.md |

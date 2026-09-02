@@ -1,6 +1,6 @@
 # Swipe_2048 — 现行实现
 
-日期：**2026-09-01**。默认值以 `src/game/feel.ts` 的 `FEEL_DEFAULT` / `FEEL2_DEFAULT` 为准。
+日期：**2026-09-02**。默认值以 `src/game/feel.ts` 的 `FEEL_DEFAULT` / `FEEL2_DEFAULT` 为准。音效以 [AUDIO.md](./AUDIO.md) 为准。
 
 | 规范 | 文件 |
 |------|------|
@@ -51,7 +51,7 @@ UI 对齐中文原版 2048（[UI-ORIGINAL.md](./UI-ORIGINAL.md)）。
 
 底边系统手势：原生 `preferredScreenEdgesDeferringSystemGestures = .bottom`。底缘按下不走棋。本按下已走棋且未抬手、800ms 内进后台 → **撤回该步**。
 
-测试：`npm test`（`swipeSegment` + `swipeVelocity` + `motion`）。
+测试：`npm test`（`swipeSegment` + `swipeVelocity` + `motion` + `audioBatcher`）。
 
 ---
 
@@ -71,6 +71,8 @@ UI 对齐中文原版 2048（[UI-ORIGINAL.md](./UI-ORIGINAL.md)）。
 | `src/game/tilePool.ts` | 棋盘 DOM 池 |
 | `src/game/view.ts` | 画到池里 |
 | `src/style.css` | 布局 + appear/pop/nudge |
+| `src/audio/*` · `src/utils/gameSfx.ts` | 音效（见 [AUDIO.md](./AUDIO.md)） |
+| `src/game/hapticFeel.ts` · `src/utils/gameHaptics.ts` | 玩法震动（见 [HAPTICS-GAME.md](./HAPTICS-GAME.md)） |
 
 ---
 
@@ -147,7 +149,13 @@ UI 对齐中文原版 2048（[UI-ORIGINAL.md](./UI-ORIGINAL.md)）。
 
 ---
 
-## 7. 近期改动（相对最初底座 demo）
+## 7. 音效（摘要）
+
+全文：[AUDIO.md](./AUDIO.md)。设置切 **音效1 短tick** / **音效2 长按**（默认 2）。合优先于滑；多组合并只播最高档；出手即播。合 4→档0 … 2048→档9。
+
+---
+
+## 8. 近期改动（相对最初底座 demo）
 
 按主题，不是按 commit。
 
@@ -164,11 +172,11 @@ UI 对齐中文原版 2048（[UI-ORIGINAL.md](./UI-ORIGINAL.md)）。
 | HUD | 对齐原版截图；原「排行榜」= 设置 |
 | 系统手势 | 推迟底边；后台中断撤回未抬手的一步 |
 | 图标 | `public/favicon.png` 等 |
-| 音效 | 轻 pop 一套（滑够响，合略高）；一步一声 |
+| 音效 | 两套（v2 tick / v3 长按咔）；合优先于滑；出手即播 |
 
 ---
 
-## 8. 踩过的坑
+## 9. 踩过的坑
 
 | 现象 | 处理 |
 |------|------|
@@ -183,7 +191,7 @@ UI 对齐中文原版 2048（[UI-ORIGINAL.md](./UI-ORIGINAL.md)）。
 
 ---
 
-## 9. 刻意不做
+## 10. 刻意不做
 
 - Android；WebGL 回退；系统 UISwipe  
 - 用速度/轨迹 LERP **判方向**  
