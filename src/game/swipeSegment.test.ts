@@ -3,6 +3,7 @@ import { describe, it } from 'node:test';
 import {
   evaluateSegment,
   shouldInvalidOnLift,
+  shouldLatchSlowDrag,
   type SegmentInput,
 } from './swipeSegment.ts';
 
@@ -190,5 +191,96 @@ describe('evaluateSegment', () => {
       dy: 0,
     });
     assert.deepEqual(d, { axis: 1, fire: 1, consume: true });
+  });
+
+  it('已锁略偏下：下不动右能动仍 fire 下，不改判', () => {
+    const d = ev({
+      axis: 0,
+      dx: 12,
+      dy: 40,
+      legal: (dir) => dir === 1,
+    });
+    assert.equal(d.fire, 2);
+    assert.equal(d.dead, undefined);
+  });
+
+  it('未锁 45° 仅右能动则走右', () => {
+    const d = ev({ dx: 80, dy: 80, legal: (dir) => dir === 1 });
+    assert.deepEqual(d, { axis: 1, fire: 1, consume: true });
+  });
+
+  it('未锁 45° 两向都能动则不出手', () => {
+    const d = ev({ dx: 80, dy: 80, legal: () => true });
+    assert.deepEqual(d, { axis: null, fire: null, consume: false });
+  });
+
+  it('未锁 45° 两向都不能动则较长轴 dead（平手向下）', () => {
+    const d = ev({ dx: 80, dy: 80, legal: () => false });
+    assert.equal(d.fire, null);
+    assert.equal(d.consume, true);
+    assert.equal(d.dead, 2);
+  });
+
+  it('未锁约 40° 仅右能动则走右', () => {
+    const d = ev({ dx: 42, dy: 50, legal: (dir) => dir === 1 });
+    assert.equal(d.fire, 1);
+    assert.equal(d.axis, 1);
+  });
+
+  it('未锁约 35° 灰区不改判', () => {
+    const d = ev({ dx: 35, dy: 50, legal: (dir) => dir === 1 });
+    assert.equal(d.fire, null);
+    assert.equal(d.axis, null);
+    assert.equal(d.consume, false);
+  });
+
+  it('无 legal 时 45° 仍等待', () => {
+    assert.deepEqual(ev({ dx: 80, dy: 80 }), {
+      axis: null,
+      fire: null,
+      consume: false,
+    });
+  });
+
+  it('手感2 先慢滑再够快也不出手', () => {
+    assert.equal(shouldLatchSlowDrag(36, 80, 36, 400), true);
+    assert.equal(shouldLatchSlowDrag(20, 80, 36, 400), false);
+    assert.equal(shouldLatchSlowDrag(36, 500, 36, 400), false);
+    const d = ev({
+      scheme: 2,
+      commit: 36,
+      speedMin: 400,
+      speed: 800,
+      slowDrag: true,
+      dx: 80,
+      dy: 0,
+    });
+    assert.equal(d.fire, null);
+    assert.equal(d.consume, false);
+  });
+
+  it('手感2 斜滑只看候选轴速度', () => {
+    const slow = ev({
+      scheme: 2,
+      commit: 16,
+      speedMin: 400,
+      speedX: 80,
+      speedY: 800,
+      dx: 80,
+      dy: 80,
+      legal: (dir) => dir === 1,
+    });
+    assert.equal(slow.fire, null);
+    const ok = ev({
+      scheme: 2,
+      commit: 16,
+      speedMin: 400,
+      speedX: 500,
+      speedY: 80,
+      dx: 80,
+      dy: 80,
+      legal: (dir) => dir === 1,
+    });
+    assert.equal(ok.fire, 1);
   });
 });

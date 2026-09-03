@@ -28,4 +28,15 @@ describe('velocity window', () => {
     const s = v.axisSpeed();
     assert.ok(Math.abs(s.x) < 80);
   });
+
+  it('抬手揭指尾巴不计入速度（慢滑末段假甩）', () => {
+    const v = createVelocityWindow();
+    v.reset(0, 0, 0);
+    v.push(60, 8, 0);
+    v.push(80, 28, 0);
+    const withTail = v.axisSpeed(80, 0);
+    const noTail = v.axisSpeed(80, 32);
+    assert.ok(withTail.x > 300);
+    assert.ok(noTail.x < 200);
+  });
 });

@@ -8,10 +8,11 @@ import { FEEL_DEFAULT, type Feel } from './feel';
 import {
   evaluateSegment,
   shouldInvalidOnLift,
+  shouldLatchSlowDrag,
   type Axis,
   type SegmentDecision,
 } from './swipeSegment';
-import { alongSpeed, createVelocityWindow } from './swipeVelocity';
+import { alongSpeed, createVelocityWindow, LIFT_SPEED_TAIL_MS } from './swipeVelocity';
 
 export type SwipeInputOptions = {
   target: HTMLElement;
@@ -19,6 +20,8 @@ export type SwipeInputOptions = {
   isBlocked?: () => boolean;
   onMove: (dir: Dir) => void;
   onInvalid?: (dir: Dir) => void;
+  /** 2048：该向盘面是否能动。不传则不做 40°–45° 斜滑分叉。 */
+  getLegal?: () => ((dir: Dir) => boolean) | undefined;
   /** 本按下已走棋且尚未抬手时进后台：撤回盘面 */
   onBackgroundAbort?: () => void;
   /** 正常抬手，本按下的走棋生效 */
@@ -39,7 +42,8 @@ function isChrome(el: EventTarget | null): boolean {
 }
 
 export function attachSwipeInput(opts: SwipeInputOptions): SwipeHandle {
-  const { target, onMove, onInvalid, isBlocked, onBackgroundAbort, onGestureCommit } = opts;
+  const { target, onMove, onInvalid, isBlocked, onBackgroundAbort, onGestureCommit, getLegal } =
+    opts;
   let firedThisHold = false;
   const feelOf = () => opts.getFeel?.() ?? FEEL_DEFAULT;
   let pid: number | null = null;
@@ -54,6 +58,9 @@ export function attachSwipeInput(opts: SwipeInputOptions): SwipeHandle {
   let commitTimer = 0;
   let lastFireAt = 0;
   let ignoreFire = false;
+  let slowDrag = false;
+  /** busy 期间已抬手、本段还没走棋：settle 后立刻判定，不清段 */
+  let liftQueued = false;
   const vel = createVelocityWindow();
   const BG_GUARD_MS = 800;
 
@@ -77,6 +84,12 @@ export function attachSwipeInput(opts: SwipeInputOptions): SwipeHandle {
   };
 
   const applyDecision = (d: SegmentDecision) => {
+    if (d.dead != null) {
+      consumeSegment();
+      lastDir = d.dead;
+      if (!ignoreFire) onInvalid?.(d.dead);
+      return;
+    }
     if (d.consume) {
       consumeSegment();
       if (d.fire !== null) {
@@ -91,11 +104,12 @@ export function attachSwipeInput(opts: SwipeInputOptions): SwipeHandle {
     axis = d.axis;
   };
 
-  const scaledInput = () => {
+  const scaledInput = (fromLift = false) => {
     const feel = feelOf();
     const dx = lastX - segX;
     const dy = lastY - segY;
     const lock: Axis = axis ?? (Math.abs(dx) > Math.abs(dy) ? 1 : 0);
+    const spd = vel.axisSpeed(performance.now(), fromLift ? LIFT_SPEED_TAIL_MS : 0);
     return {
       dx,
       dy,
@@ -106,14 +120,43 @@ export function attachSwipeInput(opts: SwipeInputOptions): SwipeHandle {
       axisRatio: feel.axisRatio,
       sameDirRepeat: feel.sameDirRepeat,
       scheme: feel.scheme,
-      speed: alongSpeed(vel.axisSpeed(), lock),
+      speed: alongSpeed(spd, lock),
       speedMin: scalePx(feel.speedPxS),
+      speedX: Math.abs(spd.x),
+      speedY: Math.abs(spd.y),
+      legal: getLegal?.(),
+      slowDrag,
     };
   };
 
-  const tryCommit = () => {
-    if (!holding || isBlocked?.()) return;
-    applyDecision(evaluateSegment(scaledInput()));
+  const tryCommit = (fromLift = false) => {
+    if (isBlocked?.()) return;
+    if (!fromLift && !holding) return;
+    const input = scaledInput(fromLift);
+    if (!fromLift && (input.scheme ?? 1) === 2 && !slowDrag) {
+      const along = Math.max(Math.abs(input.dx), Math.abs(input.dy));
+      if (shouldLatchSlowDrag(along, input.speed, input.commit, input.speedMin)) {
+        slowDrag = true;
+        input.slowDrag = true;
+      }
+    }
+    applyDecision(evaluateSegment(input));
+  };
+
+  const commitOnLift = () => {
+    const feel = feelOf();
+    const slop = scalePx(feel.slopPx);
+    const commit = scalePx(feel.commitPx);
+    const dist = Math.max(Math.abs(lastX - segX), Math.abs(lastY - segY));
+    if (shouldInvalidOnLift({ lastDir, dist, slop, commit })) {
+      const dx = lastX - segX;
+      const dy = lastY - segY;
+      const dir: Dir =
+        Math.abs(dx) >= Math.abs(dy) ? (dx >= 0 ? 1 : 3) : dy >= 0 ? 2 : 0;
+      onInvalid?.(dir);
+    } else {
+      tryCommit(true);
+    }
   };
 
   const armRetry = (ms: number) => {
@@ -136,6 +179,8 @@ export function attachSwipeInput(opts: SwipeInputOptions): SwipeHandle {
       lastDir = null;
       axis = null;
       firedThisHold = false;
+      slowDrag = false;
+      liftQueued = false;
       ignoreFire = lastY > window.innerHeight - homeBandPx();
     } else {
       consumeSegment();
@@ -149,6 +194,15 @@ export function attachSwipeInput(opts: SwipeInputOptions): SwipeHandle {
   };
 
   const onMoveSettled = () => {
+    if (liftQueued) {
+      liftQueued = false;
+      commitOnLift();
+      return;
+    }
+    if (holding && lastDir === null) {
+      tryCommit();
+      return;
+    }
     consumeSegment();
     if (holding) armRetry(feelOf().rearmMs);
   };
@@ -175,7 +229,6 @@ export function attachSwipeInput(opts: SwipeInputOptions): SwipeHandle {
     if (pid !== null && e.pointerId !== pid && !fromCancel) return;
     lastX = e.clientX;
     lastY = e.clientY;
-    vel.push(performance.now(), lastX, lastY);
     window.clearTimeout(retryTimer);
 
     if (fromCancel) {
@@ -183,20 +236,10 @@ export function attachSwipeInput(opts: SwipeInputOptions): SwipeHandle {
       return;
     }
 
-    if (!isBlocked?.()) {
-      const feel = feelOf();
-      const slop = scalePx(feel.slopPx);
-      const commit = scalePx(feel.commitPx);
-      const dist = Math.max(Math.abs(lastX - segX), Math.abs(lastY - segY));
-      if (shouldInvalidOnLift({ lastDir, dist, slop, commit })) {
-        const dx = lastX - segX;
-        const dy = lastY - segY;
-        const dir: Dir =
-          Math.abs(dx) >= Math.abs(dy) ? (dx >= 0 ? 1 : 3) : dy >= 0 ? 2 : 0;
-        onInvalid?.(dir);
-      } else {
-        tryCommit();
-      }
+    if (isBlocked?.()) {
+      if (lastDir === null && !firedThisHold) liftQueued = true;
+    } else {
+      commitOnLift();
     }
     holding = false;
     pid = null;

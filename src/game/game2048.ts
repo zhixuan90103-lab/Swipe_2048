@@ -1,4 +1,4 @@
-import { applyMove, newGame, type BoardState, type Dir } from './board';
+import { applyMove, canMove, newGame, type BoardState, type Dir } from './board';
 import {
   applyFeelCss,
   loadFeelFor,
@@ -341,6 +341,7 @@ export function startGame2048(opts: {
     getFeel: () => feel,
     isBlocked: () => busy || (mode === 'merge' && state.over),
     onMove: tryDir,
+    getLegal: () => (mode === 'merge' ? (dir: Dir) => canMove(state, dir) : undefined),
     onInvalid: (dir) => {
       if (!busy) {
         nudgeBoard(mode === 'solo' ? mazeEl : boardEl, feel.nudgeMs, dir);

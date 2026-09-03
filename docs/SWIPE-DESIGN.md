@@ -12,7 +12,7 @@
 完整默认值、模式绑定、UI：`docs/IMPLEMENTATION.md`。检索：`docs/SWIPE-RESEARCH-2026-09.md`。
 
 - **手感1**：本文判定 + 沿轴 `commit` 出手。单块模式默认。  
-- **手感2**：同一套认方向；出手再加 **轴上 80ms 窗速度 ≥ speedPxS**；`lastDir !== null` 则本按下不再 fire。2048 模式默认。速度 **不判向**。  
+- **手感2**：同一套认方向；出手再加 **轴上 80ms 窗速度 ≥ speedPxS**；`lastDir !== null` 则本按下不再 fire。2048 模式默认。速度 **不判向**。本按下若已出现 **along≥commit 且速度不够**，锁 `slowDrag`，之后再快滑/快抬手也不 fire。**抬手不把 pointerup 写入速度窗**，且抬手判定忽略末 **32ms**。  
 - 旋钮含 `scheme`、`speedPxS`、`slideMs`、`slideEase`、`boardY`、`boardScale` 等。默认以 `IMPLEMENTATION.md` 为准（现行：`slideMs` 70，`boardY` 0，`boardScale` 1.1）。  
 - 轨迹不做线性插值来认方向（弦 = 段位移）。  
 - 黄块切模式；设置打开手感表。
@@ -82,16 +82,16 @@
 | ID | 决策 |
 |----|------|
 | K1 | Pan → 离散四向。禁止系统 Swipe。滑距 ≠ 棋子停点。 |
-| K2 | **增量段**：出手瞬间 `consumeSegment`（类比 `setTranslation(0)`）。禁止等动画 settle 才当唯一清原点。`onMoveSettled` 只吸收 leftover + `armRetry(rearmMs)`。 |
+| K2 | **增量段**：出手瞬间 `consumeSegment`（类比 `setTranslation(0)`）。禁止等动画 settle 才当唯一清原点。`onMoveSettled` 只吸收 **本段已 fire** 的 leftover + `armRetry(rearmMs)`。busy 里新按下的段（`lastDir===null`）或已抬手排队的段 **不清原点**，settle 后立刻判定。 |
 | K3 | **段内锁轴（WWDC hysteresis）**：位移 ≥ slop 且主轴 ≥ 副轴 × `axisRatio` 才锁。出手后尾部 **不能改轴**（consume 已清轴）。出手前副轴 ≥ slop 且副轴 ≥ 主轴 × `axisRatio` 可 **relock**（**move 与 up 共用**，因 up 走同一套判定）。 |
-| K4 | **斜向等待**：未看清时 **不清段、不 snap、不在 commit 距离作废重来**。继续累计同一段，等划直。 |
+| K4 | **斜向等待**：未看清时 **不清段、不 snap、不在 commit 距离作废重来**。继续累计同一段，等划直。 **例外（仅 2048）**：未锁轴且偏角 ≥ 40°、两轴都 ≥ commit 时，用只读 `legal(dir)` 分叉——唯一能走的一向才 fire；两向都能走仍等待；两向都不能走则 `dead`（较长轴，事件层 `onInvalid`）。已锁轴永不改判。涂色不传 `legal`。 |
 | K5 | **holding ≠ pointerId**。`pointercancel`：pid=null，holding 仍 true。随后 `pointermove`/`pointerdown` 用新 id `grab` + `setPointerCapture`。非当前 pid 的 `pointerup` **忽略**（不 Idle）。 |
 | K6 | 全屏 `window` pointer；`touch-action: none`；holding 时 non-passive **`touchstart` + `touchmove`** `preventDefault`。忽略 `#feel-panel` / `#device-switcher` / `button,a,input`。 |
 | K7 | 不用 coalesced 判向；不用整按下 lock；不用速度；不加 `lockPx`（slop 兼开始认滑）。 |
 | K8 | 模式 `merge` / `solo`。solo 时长 = `maxTravelCells × tileMoveMs`。 |
 | K9 | 手感 9 键 + `swipe2048.feel`。默认：slop 10、commit 16、axisRatio 1.55、tileMoveMs 60、inputLockMs 10、rearmMs 10、nudgePx 1、nudgeMs 50、sameDirRepeat false。**建议** commit > slop；clamp **不**自动纠正。若 `commit≤slop`：锁轴那一帧 along 往往已 ≥commit，**可立即 fire**。 |
 | K10 | 阈值单位：设计 px。运行时 `client = designPx * (target.getBoundingClientRect().width / DESIGN_WIDTH)`。`DESIGN_WIDTH=390`。 |
-| K11 | `isBlocked` 外置（`busy || (merge && state.over)`）。**`state.won && !state.over` 不 blocked**（可继续玩）。Blocked **不是** 状态机状态。blocked 时：**禁止调用判定**；只更新 `lastX/Y`；不 lock、不 relock、不 consume、不 fire、不 invalid。抬手时若 blocked：不 fire/invalid，直接 Idle。`onMoveSettled` 仍 `consumeSegment`。`blocked` **不进入** `SegmentInput`。 |
+| K11 | `isBlocked` 外置（`busy || (merge && state.over)`）。**`state.won && !state.over` 不 blocked**（可继续玩）。Blocked **不是** 状态机状态。blocked 时：**禁止调用判定**；只更新 `lastX/Y`；不 lock、不 relock、不 consume、不 fire、不 invalid。抬手时若 blocked 且本段未 fire：`liftQueued`，settle 后按抬手判定。`onMoveSettled`：有排队或仍按住的新段则判定，否则 `consumeSegment`。`blocked` **不进入** `SegmentInput`。 |
 | K12 | 键盘（方向键 / WASD）旁路判定层，直接 `onMove`；仍尊重 `isBlocked`；`e.repeat` 忽略。 |
 | K13 | **抬手 invalid 谓词（现 `endHold`，钉死）**：非 cancel、非 blocked 时：若 `lastDir===null && slop≤dist<commit`（`dist=max(|dx|,|dy|)`）→ `onInvalid`，**不**再跑判定。否则与 move 一样调用判定（可 lock/relock/fire/同向 consume）。因此 **45° 长滑 `dist≥commit` 抬手：不 invalid、判定 no-op、不 nudge**。 |
 | K14 | **进后台撤回最近指针走棋**：系统上滑常先 `pointerup` 再 hidden。抬手后 **800ms** 内 hidden/pagehide/blur/freeze 仍撤回本按下第一火前的盘面。新 `pointerdown` 或 800ms 到点才提交。键盘不走这条。`pointercancel` 前台仍 K5。 |
