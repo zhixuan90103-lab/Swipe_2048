@@ -69,7 +69,8 @@ export function attachSwipeInput(opts: SwipeInputOptions): SwipeHandle {
   const homeBandPx = () => {
     const raw = getComputedStyle(document.documentElement).getPropertyValue('--safe-bottom');
     const n = Number.parseFloat(raw);
-    return (Number.isFinite(n) && n > 0 ? n : 34) + 8;
+    const rawBand = Number.isFinite(n) && n > 0 ? n : 34;
+    return Math.min(rawBand, 14);
   };
 
   const scalePx = (designPx: number) => {
@@ -96,7 +97,8 @@ export function attachSwipeInput(opts: SwipeInputOptions): SwipeHandle {
       consumeSegment();
       if (d.fire !== null) {
         lastDir = d.fire;
-        if (ignoreFire) return;
+        // 底缘只让出「上滑回桌面」。下滑若走棋，系统就不会收成 Reachability 半屏。
+        if (ignoreFire && d.fire === 0) return;
         firedThisHold = true;
         lastFireAt = performance.now();
         onMove(d.fire);
@@ -295,6 +297,12 @@ export function attachSwipeInput(opts: SwipeInputOptions): SwipeHandle {
     onMove(dir);
   };
 
+  const onEdgeDown = () => {
+    if (isBlocked?.()) return;
+    onMove(2);
+  };
+  window.addEventListener('swipe2048-edge-down', onEdgeDown);
+
   const peOpts: AddEventListenerOptions = { capture: true, passive: false };
   target.tabIndex = 0;
   window.addEventListener('pointerdown', onDown, peOpts);
@@ -348,6 +356,7 @@ export function attachSwipeInput(opts: SwipeInputOptions): SwipeHandle {
       window.removeEventListener('touchstart', onTouchGuard, peOpts);
       window.removeEventListener('touchmove', onTouchGuard, peOpts);
       window.removeEventListener('keydown', onKey, true);
+      window.removeEventListener('swipe2048-edge-down', onEdgeDown);
     },
   };
 }

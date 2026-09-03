@@ -65,6 +65,7 @@
 - 80ms 窗净位移，不判向。  
 - 抬手：不 `vel.push(pointerup)`；按下超过约 120ms 才剥末 32ms 揭指。短快甩不剥，避免第二下速度被吃光。  
 - **每次 `pointerdown` 都开新段**（清 `lastDir`）。iOS 第一下常以 `pointercancel` 结束，若仍当同一指，手感2 会丢掉紧接着的第二下。  
+- **底缘下滑仍走棋**（仅让出上滑回桌面）。Home 条一带向下由原生 pan **独占认领**（`cancelsTouchesInView`），达到约 28pt 后派 `swipe2048-edge-down` 让棋盘走下。空 pan 同时识别挡不住 Reachability。  
 - `shouldLatchSlowDrag(along, speed, commit, speedMin)` 在 **pointermove** 上锁；本按下 `slowDrag` 后 evaluate 不再 fire。
 
 ---

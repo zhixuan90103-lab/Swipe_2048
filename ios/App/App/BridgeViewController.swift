@@ -3,7 +3,12 @@ import Capacitor
 
 /// Registers local plugins and locks portrait orientation.
 @objc(BridgeViewController)
-final class BridgeViewController: CAPBridgeViewController {
+final class BridgeViewController: CAPBridgeViewController, UIGestureRecognizerDelegate {
+    private var downPan: UIPanGestureRecognizer?
+    private var edgeDownStrikes = 0
+    private var lastEdgeDownAt: TimeInterval = 0
+    private let edgeDownReset: TimeInterval = 5
+
     override var supportedInterfaceOrientations: UIInterfaceOrientationMask {
         .portrait
     }
@@ -16,11 +21,7 @@ final class BridgeViewController: CAPBridgeViewController {
         false
     }
 
-    /// 底边：第一次滑给游戏，回桌面需再滑（Home / 多任务）。
-    /// 官方文档：系统边缘手势默认优先；沉浸式 App 可 defer 指定边。
-    /// https://developer.apple.com/documentation/uikit/uiviewcontroller/preferredscreenedgesdeferringsystemgestures
-    /// 不要同时 prefersHomeIndicatorAutoHidden，否则 defer 会失效。
-    /// 从上往下扫过 Home 条触发的「半屏」是 Reachability，无公开 API 可关。
+    /// 底边：第一次滑给游戏，回桌面需再滑。不要同时 prefersHomeIndicatorAutoHidden。
     override var preferredScreenEdgesDeferringSystemGestures: UIRectEdge {
         .bottom
     }
@@ -33,7 +34,70 @@ final class BridgeViewController: CAPBridgeViewController {
             scroll.alwaysBounceHorizontal = false
             scroll.isScrollEnabled = false
         }
+        installDownPan()
         setNeedsUpdateOfScreenEdgesDeferringSystemGestures()
+    }
+
+    /// Home 指示条高度一带（约 22pt）才拦向下。第一次吞掉，5s 内第二次放给系统。
+    private func edgeBand() -> CGFloat {
+        min(max(view.safeAreaInsets.bottom * 0.35, 10), 14)
+    }
+
+    private func refreshEdgeStrikes() {
+        let now = ProcessInfo.processInfo.systemUptime
+        if now - lastEdgeDownAt > edgeDownReset { edgeDownStrikes = 0 }
+    }
+
+    private func installDownPan() {
+        guard downPan == nil else { return }
+        let pan = UIPanGestureRecognizer(target: self, action: #selector(onDownPan(_:)))
+        pan.maximumNumberOfTouches = 1
+        pan.cancelsTouchesInView = true
+        pan.delaysTouchesBegan = false
+        pan.delaysTouchesEnded = false
+        pan.delegate = self
+        view.addGestureRecognizer(pan)
+        downPan = pan
+    }
+
+    @objc private func onDownPan(_ pan: UIPanGestureRecognizer) {
+        switch pan.state {
+        case .ended, .cancelled, .failed:
+            if pan.translation(in: view).y > 8 {
+                refreshEdgeStrikes()
+                edgeDownStrikes += 1
+                lastEdgeDownAt = ProcessInfo.processInfo.systemUptime
+            }
+        default:
+            break
+        }
+    }
+
+    func gestureRecognizer(
+        _ gestureRecognizer: UIGestureRecognizer,
+        shouldReceive touch: UITouch
+    ) -> Bool {
+        guard gestureRecognizer === downPan else { return true }
+        let y = touch.location(in: view).y
+        return y > view.bounds.height - edgeBand()
+    }
+
+    func gestureRecognizer(
+        _ gestureRecognizer: UIGestureRecognizer,
+        shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer
+    ) -> Bool {
+        gestureRecognizer !== downPan
+    }
+
+    func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+        guard let pan = gestureRecognizer as? UIPanGestureRecognizer, pan === downPan else {
+            return true
+        }
+        refreshEdgeStrikes()
+        if edgeDownStrikes >= 1 { return false }
+        let t = pan.translation(in: view)
+        let v = pan.velocity(in: view)
+        return t.y > 6 || v.y > 60
     }
 
     override func capacitorDidLoad() {
