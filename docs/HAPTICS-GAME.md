@@ -82,7 +82,7 @@ spawn: 不震
 1. 同微任务内：有 merge **丢掉** slide。  
 2. 只保留 **一条** 合或滑（多组合并已在 `playBoardSfx` 取最高块）。  
 3. cooldown：slide/merge ~24ms，nudge ~50ms，ui ~24ms，win/over ~400ms。  
-4. busy 窗口内（滑移锁）不额外排队——`tryDir` 已 `if (busy) return`。  
+4. 走棋不等动画；震动跟逻辑出手。结束态 `isBlocked` 时不再排队。  
 5. flush 一次最多 **一条** 棋盘触感（比音频 cap 更严：马达不能叠）。  
 6. 关 `haptics.setEnabled(false)` 或系统无马达：静默。
 

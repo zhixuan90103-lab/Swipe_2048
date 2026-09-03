@@ -44,7 +44,7 @@ transform: start → end，一次 CSS transition
 | 模式 | msPerCell | 曲线 |
 |------|-----------|------|
 | 2048 | `feel.slideMs`（默认 **65**） | `feel.slideEase`：更柔 / 先快后慢 / 匀速 |
-| 单块 | `feel.tileMoveMs`（默认 60） | **linear** |
+| 涂色 | `getAmazeMoveMs()`（默认 **20**） | **linear** |
 
 更柔 CSS：`cubic-bezier(0.39, 0.575, 0.565, 1)`（正弦 ease-out）。
 
@@ -98,7 +98,7 @@ transform: start → end，一次 CSS transition
 | 出现时长 | `appearMs` |
 | 合并弹时长 | `mergePopMs` |
 
-单块只显示「每格用时」`tileMoveMs`，以及共用的出现时长。
+涂色盘格子边长 / 每格用时在设置里单独存，与 `boardScale` 无关。
 
 ---
 

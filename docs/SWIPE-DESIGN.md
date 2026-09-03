@@ -2,17 +2,17 @@
 
 | 字段 | 值 |
 |------|----|
-| 日期 | 2026-09-01 |
-| 状态 | 判定层已落地；产品默认与 UI 以 `IMPLEMENTATION.md` 为准 |
-| 本文范围 | `evaluateSegment`、抬手 K13、blocked 冻结、事件层接线 |
+| 日期 | 2026-09-03 |
+| 状态 | 判定层已落地；产品默认 / UI / 手感回路以 `IMPLEMENTATION.md`、`FEEL-LOOP.md` 为准 |
+| 本文范围 | `evaluateSegment`、抬手 K13、blocked、事件层接线 |
 | 实现 | `swipeSegment.ts` · `swipeVelocity.ts` · `swipeInput.ts` |
 
 ### 现行产品（本文未逐条展开处）
 
 完整默认值、模式绑定、UI：`docs/IMPLEMENTATION.md`。检索：`docs/SWIPE-RESEARCH-2026-09.md`。
 
-- **手感1**：本文判定 + 沿轴 `commit` 出手。单块模式默认。  
-- **手感2**：同一套认方向；出手再加 **轴上 80ms 窗速度 ≥ speedPxS**；`lastDir !== null` 则本按下不再 fire。2048 模式默认。速度 **不判向**。本按下若已出现 **along≥commit 且速度不够**，锁 `slowDrag`，之后再快滑/快抬手也不 fire。**抬手不把 pointerup 写入速度窗**，且抬手判定忽略末 **32ms**。  
+- **手感1**：本文判定 + 沿轴 `commit` 出手。涂色模式默认。  
+- **手感2**：同一套认方向；出手再加 **轴上 80ms 窗速度 ≥ speedPxS**；`lastDir !== null` 则本按下不再 fire。2048 模式默认。速度 **不判向**。`slowDrag`：along≥commit 且速度不够则本按下不再 fire。抬手不写入速度窗；按下 **≥120ms** 才剥末 32ms。`pointerdown` 一律新段。系统手势见 K15 / [FEEL-LOOP.md](./FEEL-LOOP.md)。  
 - 旋钮含 `scheme`、`speedPxS`、`slideMs`、`slideEase`、`boardY`、`boardScale` 等。默认以 `IMPLEMENTATION.md` 为准（现行：`slideMs` 65，`boardY` 0，`boardScale` 1.1，`inputLockMs` 0）。  
 - 轨迹不做线性插值来认方向（弦 = 段位移）。  
 - 黄块切模式；设置打开手感表。
@@ -29,7 +29,7 @@
 
 ### 当前状态
 
-- 玩法：`merge`（标准 2048）+ `solo`（一颗块滑到墙，时长 = 格数 × `tileMoveMs`）。
+- 玩法：`merge`（标准 2048）+ `solo`（7×9 涂色盘，滑到墙）。
 - 输入：全屏 `window` Pointer Events → 离散 `Dir`（0 上 / 1 右 / 2 下 / 3 左）。
 - 手感：`localStorage` `swipe2048.feel.byMode`，面板 `#feel-panel`。默认见 `IMPLEMENTATION.md`。
 - 底座：390×844 设计 px，UI 只挂 `#ui-root`，`vite base: './'`，无 WebGPU 不回退。
@@ -82,13 +82,13 @@
 | ID | 决策 |
 |----|------|
 | K1 | Pan → 离散四向。禁止系统 Swipe。滑距 ≠ 棋子停点。 |
-| K2 | **增量段**：出手瞬间 `consumeSegment`（类比 `setTranslation(0)`）。禁止等动画 settle 才当唯一清原点。`onMoveSettled` 只吸收 **本段已 fire** 的 leftover + `armRetry(rearmMs)`。busy 里新按下的段（`lastDir===null`）或已抬手排队的段 **不清原点**，settle 后立刻判定。 |
+| K2 | **增量段**：出手瞬间 `consumeSegment`。游戏层 **不因滑移动画结束** 调 `onMoveSettled`（无输入 busy）。事件层仍保留 `onMoveSettled` 入口。 |
 | K3 | **段内锁轴（WWDC hysteresis）**：位移 ≥ slop 且主轴 ≥ 副轴 × `axisRatio` 才锁。出手后尾部 **不能改轴**（consume 已清轴）。出手前副轴 ≥ slop 且副轴 ≥ 主轴 × `axisRatio` 可 **relock**（**move 与 up 共用**，因 up 走同一套判定）。 |
 | K4 | **斜向等待**：未看清时 **不清段、不 snap、不在 commit 距离作废重来**。继续累计同一段，等划直。 **例外（仅 2048）**：未锁轴且偏角 ≥ 40°、两轴都 ≥ commit 时，用只读 `legal(dir)` 分叉——唯一能走的一向才 fire；两向都能走仍等待；两向都不能走则 `dead`（较长轴，事件层 `onInvalid`）。已锁轴永不改判。涂色不传 `legal`。 |
 | K5 | **holding ≠ pointerId**。`pointercancel`：pid=null，holding 仍 true。随后 **`pointermove` 用新 id `grab(false)`**（同一指续滑）。**`pointerdown` 一律 `grab(true)` 开新段**（iOS 常把抬手当 cancel，否则手感2 会丢掉下一甩）。非当前 pid 的 `pointerup` **忽略**（不 Idle）。 |
 | K6 | 全屏 `window` pointer；`touch-action: none`；holding 时 non-passive **`touchstart` + `touchmove`** `preventDefault`。忽略 `#feel-panel` / `#device-switcher` / `button,a,input`。 |
 | K7 | 不用 coalesced 判向；不用整按下 lock；不用速度；不加 `lockPx`（slop 兼开始认滑）。 |
-| K8 | 模式 `merge` / `solo`。solo 时长 = `maxTravelCells × tileMoveMs`。 |
+| K8 | 模式 `merge` / `solo`（涂色）。涂色滑移时长 = 格数 × `getAmazeMoveMs()`。 |
 | K9 | 手感 9 键 + `swipe2048.feel`。默认：slop 10、commit 16、axisRatio 1.55、tileMoveMs 60、inputLockMs 10、rearmMs 10、nudgePx 1、nudgeMs 50、sameDirRepeat false。**建议** commit > slop；clamp **不**自动纠正。若 `commit≤slop`：锁轴那一帧 along 往往已 ≥commit，**可立即 fire**。 |
 | K10 | 阈值单位：设计 px。运行时 `client = designPx * (target.getBoundingClientRect().width / DESIGN_WIDTH)`。`DESIGN_WIDTH=390`。 |
 | K11 | `isBlocked` 外置（**仅** `merge && state.over`；动画不挡输入）。**`state.won && !state.over` 不 blocked**。Blocked **不是** 状态机状态。blocked 时：禁止判定；只更新 `lastX/Y`。游戏层不再因滑移结束调用 `onMoveSettled`。出手瞬间已 `consumeSegment`。`blocked` **不进入** `SegmentInput`。 |
@@ -101,16 +101,17 @@
 
 ## Proposed Design
 
+> **现行接线**以文首「现行产品」、Key Decisions（尤其 K2 / K11 / K15）和 [FEEL-LOOP.md](./FEEL-LOOP.md) 为准。下列框图写于 09-01 重构，其中 **busy / 动画结束 onMoveSettled** 已废止，勿再当实现合同。
+
 ### 分层
 
 ```
 ┌─────────────────────────────────────────┐
 │  game2048.ts                            │
-│  isBlocked = busy || (merge && over)    │
+│  isBlocked = merge && over              │
 │  won && !over → 不 blocked              │
-│  onMove → tryDir → 动画 + inputLockMs   │
+│  onMove → tryDir（立刻结算，不等动画）   │
 │  onInvalid → nudgeBoard                 │
-│  settle → swipe.onMoveSettled()         │
 └─────────────────┬───────────────────────┘
                   │
 ┌─────────────────▼───────────────────────┐

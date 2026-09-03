@@ -4,7 +4,7 @@
 
 ## 1. 定位
 
-可复制的 **竖屏 WebGPU 手游底座**：能 dev、能 build、能真机、能震动、桌面≈手机/Pad。本仓库玩法在 `src/game/*`（2048 + 单块），底座约定仍有效。
+可复制的 **竖屏 WebGPU 手游底座**：能 dev、能 build、能真机、能震动、桌面≈手机/Pad。本仓库玩法在 `src/game/*`（2048 + 涂色），底座约定仍有效。
 
 ## 2. 目录
 
@@ -18,7 +18,7 @@ portrait-webgpu-base/
 ├── capacitor.config.ts     # contentInset never · scrollEnabled false
 ├── src/
 │   ├── main.ts             # 启动游戏
-│   ├── game/               # 2048 / 单块 / 手势
+│   ├── game/               # 2048 / 涂色 / 手势
 │   ├── create-renderer.ts
 │   ├── style.css
 │   ├── adapt/

@@ -5,6 +5,7 @@
 | 规范 | 文件 |
 |------|------|
 | 手势判定 | [SWIPE-DESIGN.md](./SWIPE-DESIGN.md) |
+| 手感回路 | [FEEL-LOOP.md](./FEEL-LOOP.md) |
 | 方块怎么动 | [MOTION.md](./MOTION.md) |
 | 默认值 / UI / 模式 | **本文** |
 | 文档索引 | [README.md](./README.md) |
@@ -43,14 +44,14 @@ UI 对齐中文原版 2048（[UI-ORIGINAL.md](./UI-ORIGINAL.md)）。
 
 | | 手感1 距离 | 手感2 甩动 |
 |--|--|--|
-| 默认模式 | 单块 | 2048 |
+| 默认模式 | 涂色 | 2048 |
 | 出手 | 沿锁轴 ≥ `commitPx` | 沿轴 ≥ `commitPx` **且** 轴上 80ms 窗速度 ≥ `speedPxS` |
 | 慢但方向清楚 | 距离够就走 | **不走棋**。本按下一旦出现「距离已够、速度不够」即锁成慢滑，之后再加速或快抬手也不走。抬手揭指不写入速度窗，且忽略抬手前 32ms。 |
 | 按住 | 可转向；`sameDirRepeat` 可连走 | **每次按下只一步** |
 
-`pointercancel` 不断按住。全屏 window pointer。**走棋不等动画**：`busy` 不挡下一手；清段只在出手/抬手。画面打断时从当前 transform 接到新格。仅 `state.over` 挡 2048 输入。
+`pointercancel` 不断按住；**每次 `pointerdown` 开新段**。全屏 window pointer。**走棋不等动画**：无输入 busy；清段只在出手/抬手。画面打断从当前 transform 接到新格。仅 `state.over` 挡 2048 输入。
 
-底边系统手势：原生 `preferredScreenEdgesDeferringSystemGestures = .bottom`。底缘按下不走棋。本按下已走棋且未抬手、800ms 内进后台 → **撤回该步**。
+**系统手势与走棋互斥**（详见 [FEEL-LOOP.md](./FEEL-LOOP.md)）：按下点在顶/底安全区则本段不走棋。回桌面一次上滑（不 defer 底边）。便捷访问无公开关闭口；原生最底约 10–14pt 向下第一次吞掉、5s 内第二次给系统。本按下已走棋且 800ms 内进后台 → 撤回该步。
 
 测试：`npm test`（`swipeSegment` + `swipeVelocity` + `motion` + `hapticFeel` + `audioBatcher` + `amaze`）。
 
@@ -87,7 +88,7 @@ UI 对齐中文原版 2048（[UI-ORIGINAL.md](./UI-ORIGINAL.md)）。
 
 `slopPx ≥ commitPx`：锁轴帧可能立刻 fire。面板不自动纠正。
 
-### 手感1（单块默认）`FEEL_DEFAULT`
+### 手感1（涂色默认）`FEEL_DEFAULT`
 
 | 键 | 默认 | 作用 |
 |----|------|------|
@@ -96,7 +97,7 @@ UI 对齐中文原版 2048（[UI-ORIGINAL.md](./UI-ORIGINAL.md)）。
 | commitPx | 16 | 沿锁轴出手 |
 | speedPxS | 400 | 本套不用 |
 | axisRatio | 1.55 | 主轴/副轴 |
-| tileMoveMs | 60 | 单块每格 ms |
+| tileMoveMs | 60 | 涂色每格 ms（手感1） |
 | slideMs | **70** | 2048 每格滑移 |
 | slideEase | **soft** | 更柔 / 先快后慢 / 匀速 |
 | appearMs | 200 | 新块出现 |
@@ -126,17 +127,21 @@ UI 对齐中文原版 2048（[UI-ORIGINAL.md](./UI-ORIGINAL.md)）。
 
 `slideEase` 仍为 **soft**。
 
+涂色盘（与手感表分开存）：格子边长默认 **24** 设计 px（范围 24–56）；每格移动 **20ms**（范围 20–160）。
+
+震动默认：`slideI` / `slideS` **0.30**；`pulseTailI` **0.20**；合强度下限 **0.70**。
+
 ---
 
 ## 5. UI
 
 - 顶栏：[UI-ORIGINAL.md](./UI-ORIGINAL.md) — 标题 **104²**，分数 **93×92**，按钮 **93×28** `#ed995b` 与分数盒左右对齐。  
-- **点黄块** ↔ 2048 / 单块。滑动忽略 `#g-title`。  
+- **点黄块** ↔ 2048 / 涂色。滑动忽略 `#g-title`。  
 - **菜单** = 新局。**设置** = 手感表。  
 - 棋盘格 72、缝 8 × `boardScale`（**1.1**）；`boardY` **0**。  
-- 结束遮罩：800ms fade，delay 1200ms。
+- 结束层：盖满 `#ui-root`（`overlay.ts`）。上：本局分数；下：再来。800ms fade，delay 1200ms。
 
-设置项：2048 显示每格滑移、曲线、出现、合并弹；单块显示每格用时。模型见 [MOTION.md](./MOTION.md)。
+设置项：2048 显示每格滑移、曲线、出现、合并弹；涂色显示格子边长与每格用时。模型见 [MOTION.md](./MOTION.md)。
 
 ---
 
@@ -154,7 +159,8 @@ UI 对齐中文原版 2048（[UI-ORIGINAL.md](./UI-ORIGINAL.md)）。
 
 ## 7. 音效（摘要）
 
-全文：[AUDIO.md](./AUDIO.md)。设置切 **音效1 短tick** / **音效2 长按**（默认 2）。合优先于滑；多组合并只播最高档；出手即播。合 4→档0 … 2048→档9。
+全文：[AUDIO.md](./AUDIO.md)。设置切 **音效1 短tick** / **音效2 长按**（默认 2）。合优先于滑；多组合并只播最高档；出手即播。合 4→档0 … 2048→档9。  
+iOS：`AVAudioSession` `.ambient` + `.mixWithOthers`，**不要** `.duckOthers`。
 
 ---
 
@@ -164,18 +170,14 @@ UI 对齐中文原版 2048（[UI-ORIGINAL.md](./UI-ORIGINAL.md)）。
 
 | 主题 | 现在 |
 |------|------|
-| 玩法 | 2048 + 单块；黄块切换 |
-| 手势 | 段锁轴 + 两套出手（距离 / 甩动） |
-| 每格滑移 | **65ms**（曾 80 → 75 → 70 → 65） |
-| 滑移曲线 | `slideEase`：soft / out / linear |
-| 出现 / 合并弹 | 手感2：250ms / 200ms |
-| 棋盘 | `boardScale` **1.1**，`boardY` **0**（曾 1.09 / 20） |
-| 无效反馈 | 沿滑动轴回弹，不是左右抖 |
-| 运动代码 | `motion.ts` + `tilePool.ts` |
-| HUD | 对齐原版截图；原「排行榜」= 设置 |
-| 系统手势 | 推迟底边；后台中断撤回未抬手的一步 |
-| 图标 | `public/favicon.png` 等 |
-| 音效 | 两套（v2 tick / v3 长按咔）；合优先于滑；出手即播 |
+| 玩法 | 2048 + 涂色迷宫；黄块切换 |
+| 手势 | 段锁轴 + 两套出手；斜滑分叉；慢滑锁；pointerdown 新段 |
+| 每格滑移 | **65ms**（手感2）；输入锁 **0** |
+| 走棋 / 画面 | 逻辑立刻结算；打断从当前像素接过去 |
+| 结束层 | 盖满 UI；分数在上、再来在下 |
+| 系统手势 | 与走棋互斥；回桌面一次上滑；细带两次拦便捷访问 |
+| 音效 | 两套；合优先于滑；iOS 不 duck 后台音乐 |
+| 震动 | 滑 0.30 / 合下限 0.70 |
 
 ---
 
@@ -187,8 +189,8 @@ UI 对齐中文原版 2048（[UI-ORIGINAL.md](./UI-ORIGINAL.md)）。
 | 斜下当左 / 横判竖 | 段内锁轴；commit 只看 along |
 | 长按斜向反轴 | **出手时** consume，不要等 settle |
 | cancel 后失灵 | holding 保持；新 pointer 再 grab |
-| 按住动画飞 | settle consume + reflow |
-| 滑去后台也走了棋 | defer 底边 + 底缘不走棋 + 800ms 内进后台撤回 |
+| 按住动画飞 | 逻辑立刻结算；打断从当前像素接 |
+| 系统手势同时走棋 | 顶/底安全区起手不走棋；回桌面一次上滑；800ms 进后台撤回 |
 | 改了默认仍是旧值 | localStorage 手感；点「恢复默认」 |
 | 玩家口述当规范 | 口述是现象；像素只引 A/B |
 
@@ -200,7 +202,8 @@ UI 对齐中文原版 2048（[UI-ORIGINAL.md](./UI-ORIGINAL.md)）。
 - 用速度/轨迹 LERP **判方向**  
 - 手感2 做成「必须松手才认」  
 - 整盘固定滑移时长  
-- 热路径 `new Audio()`（音效走 catalog + batcher）
+- 热路径 `new Audio()`（音效走 catalog + batcher）  
+- App 内关闭便捷访问；iOS `.duckOthers` 压后台音乐
 
 ```
 npm run dev     # 127.0.0.1:5204

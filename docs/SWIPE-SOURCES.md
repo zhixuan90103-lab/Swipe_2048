@@ -44,7 +44,7 @@
 | Handling pan gestures | https://developer.apple.com/documentation/uikit/handling-pan-gestures | Pan 连续；`translation(in:)` 相对按下点；边缘用 `UIScreenEdgePanGestureRecognizer` |
 | Coordinating recognizers | https://developer.apple.com/documentation/uikit/coordinating-multiple-gesture-recognizers | 同视图上 **Pan 先于 Swipe 成功**；要 Swipe 必须 `require(toFail:)` |
 | WKWebView 历史滑 | https://developer.apple.com/documentation/webkit/wkwebview/allowsbackforwardnavigationgestures | **`allowsBackForwardNavigationGestures` 默认 `false`** |
-| 推迟系统边缘手势 | https://developer.apple.com/documentation/uikit/uiviewcontroller/2887512-preferredscreenedgesdeferringsystemgestures | 游戏应推迟底边（Home / Reachability），不是关掉无障碍 |
+| 推迟系统边缘手势 | https://developer.apple.com/documentation/uikit/uiviewcontroller/preferredscreenedgesdeferringsystemgestures | 回桌面现 **不 defer 底边**（一次上滑退出）。便捷访问 **无公开 API** 可关。 |
 
 **结论：** 棋盘用手写 pan→离散命令，不要 `UISwipeGestureRecognizer`。
 
