@@ -95,7 +95,7 @@
 | K12 | 键盘（方向键 / WASD）旁路判定层，直接 `onMove`；仍尊重 `isBlocked`；`e.repeat` 忽略。 |
 | K13 | **抬手 invalid 谓词（现 `endHold`，钉死）**：非 cancel、非 blocked 时：若 `lastDir===null && slop≤dist<commit`（`dist=max(|dx|,|dy|)`）→ `onInvalid`，**不**再跑判定。否则与 move 一样调用判定（可 lock/relock/fire/同向 consume）。因此 **45° 长滑 `dist≥commit` 抬手：不 invalid、判定 no-op、不 nudge**。 |
 | K14 | **进后台撤回最近指针走棋**：系统上滑常先 `pointerup` 再 hidden。抬手后 **800ms** 内 hidden/pagehide/blur/freeze 仍撤回本按下第一火前的盘面。新 `pointerdown` 或 800ms 到点才提交。键盘不走这条。`pointercancel` 前台仍 K5。 |
-| K15 | **Home 条**：原生 `preferredScreenEdgesDeferringSystemGestures = .bottom`（上滑回桌面需再滑）。JS：底缘按下只让出 **向上**（dir 0）；**向下走棋照走**，让系统把这次下滑当成 App 手势，避免 Reachability 半屏。原生再挂一个不 cancel touch 的向下 pan 认领该指。不与 Home 条自动隐藏同开。 |
+| K15 | **系统手势与走棋互斥**：按下点在 **顶或底安全区** 则本段不 `onMove`、不 nudge。回桌面一次上滑；棋盘内滑动仍走棋。原生底缘细带只拦便捷访问，不再派 JS 走棋。 |
 
 ---
 

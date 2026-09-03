@@ -21,8 +21,9 @@ final class BridgeViewController: CAPBridgeViewController, UIGestureRecognizerDe
         false
     }
 
+    /// 不 defer 底边：Home 条上滑一次即回桌面。棋盘上滑起点不在边缘。
     override var preferredScreenEdgesDeferringSystemGestures: UIRectEdge {
-        .bottom
+        []
     }
 
     override func viewDidAppear(_ animated: Bool) {

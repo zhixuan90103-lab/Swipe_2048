@@ -21,9 +21,11 @@ final class BridgeViewController: CAPBridgeViewController, UIGestureRecognizerDe
         false
     }
 
-    /// 底边：第一次滑给游戏，回桌面需再滑。不要同时 prefersHomeIndicatorAutoHidden。
+    /// 不 defer 底边：从 Home 条上滑一次即回桌面。
+    /// 棋盘上的上滑起点不在边缘，系统不会当成回主屏。
+    /// 不要开 prefersHomeIndicatorAutoHidden。
     override var preferredScreenEdgesDeferringSystemGestures: UIRectEdge {
-        .bottom
+        []
     }
 
     override func viewDidAppear(_ animated: Bool) {

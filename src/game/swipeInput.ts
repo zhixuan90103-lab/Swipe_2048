@@ -66,11 +66,16 @@ export function attachSwipeInput(opts: SwipeInputOptions): SwipeHandle {
   const vel = createVelocityWindow();
   const BG_GUARD_MS = 800;
 
-  const homeBandPx = () => {
-    const raw = getComputedStyle(document.documentElement).getPropertyValue('--safe-bottom');
-    const n = Number.parseFloat(raw);
-    const rawBand = Number.isFinite(n) && n > 0 ? n : 34;
-    return Math.min(rawBand, 14);
+  const cssPx = (name: string, fallback: number) => {
+    const n = Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue(name));
+    return Number.isFinite(n) && n > 0 ? n : fallback;
+  };
+
+  /** 顶/底安全区起手：整次按下不走棋，避免和系统手势叠在一起。 */
+  const inSystemEdge = (clientY: number) => {
+    const top = cssPx('--safe-top', 59) + 4;
+    const bottom = cssPx('--safe-bottom', 34) + 4;
+    return clientY < top || clientY > window.innerHeight - bottom;
   };
 
   const scalePx = (designPx: number) => {
@@ -97,8 +102,7 @@ export function attachSwipeInput(opts: SwipeInputOptions): SwipeHandle {
       consumeSegment();
       if (d.fire !== null) {
         lastDir = d.fire;
-        // 底缘只让出「上滑回桌面」。下滑若走棋，系统就不会收成 Reachability 半屏。
-        if (ignoreFire && d.fire === 0) return;
+        if (ignoreFire) return;
         firedThisHold = true;
         lastFireAt = performance.now();
         onMove(d.fire);
@@ -135,6 +139,7 @@ export function attachSwipeInput(opts: SwipeInputOptions): SwipeHandle {
   };
 
   const tryCommit = (fromLift = false) => {
+    if (ignoreFire) return;
     if (isBlocked?.()) return;
     if (!fromLift && !holding) return;
     const input = scaledInput(fromLift);
@@ -149,6 +154,7 @@ export function attachSwipeInput(opts: SwipeInputOptions): SwipeHandle {
   };
 
   const commitOnLift = () => {
+    if (ignoreFire) return;
     const feel = feelOf();
     const slop = scalePx(feel.slopPx);
     const commit = scalePx(feel.commitPx);
@@ -187,7 +193,7 @@ export function attachSwipeInput(opts: SwipeInputOptions): SwipeHandle {
       slowDrag = false;
       liftQueued = false;
       holdStart = performance.now();
-      ignoreFire = lastY > window.innerHeight - homeBandPx();
+      ignoreFire = inSystemEdge(lastY);
     } else {
       consumeSegment();
     }
@@ -297,12 +303,6 @@ export function attachSwipeInput(opts: SwipeInputOptions): SwipeHandle {
     onMove(dir);
   };
 
-  const onEdgeDown = () => {
-    if (isBlocked?.()) return;
-    onMove(2);
-  };
-  window.addEventListener('swipe2048-edge-down', onEdgeDown);
-
   const peOpts: AddEventListenerOptions = { capture: true, passive: false };
   target.tabIndex = 0;
   window.addEventListener('pointerdown', onDown, peOpts);
@@ -356,7 +356,6 @@ export function attachSwipeInput(opts: SwipeInputOptions): SwipeHandle {
       window.removeEventListener('touchstart', onTouchGuard, peOpts);
       window.removeEventListener('touchmove', onTouchGuard, peOpts);
       window.removeEventListener('keydown', onKey, true);
-      window.removeEventListener('swipe2048-edge-down', onEdgeDown);
     },
   };
 }
