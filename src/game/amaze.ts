@@ -3,11 +3,11 @@ import { VECTORS, type Dir } from './board';
 /** 涂色盘：行列固定；格子边长可在设置里改。与 2048 boardScale 无关。 */
 export const AMAZE_W = 7;
 export const AMAZE_H = 9;
-export const AMAZE_CELL_DEFAULT = 46;
+export const AMAZE_CELL_DEFAULT = 24;
 export const AMAZE_CELL_MIN = 24;
 export const AMAZE_CELL_MAX = 56;
 export const AMAZE_GAP = 4;
-export const AMAZE_MOVE_MS_DEFAULT = 60;
+export const AMAZE_MOVE_MS_DEFAULT = 20;
 export const AMAZE_MOVE_MS_MIN = 20;
 export const AMAZE_MOVE_MS_MAX = 160;
 

@@ -165,7 +165,8 @@ public class NativeAudioPlugin: CAPPlugin, CAPBridgedPlugin {
     private func configureSession() {
         let s = AVAudioSession.sharedInstance()
         do {
-            try s.setCategory(.ambient, options: [.mixWithOthers, .duckOthers])
+            // ambient + mix：和后台音乐共存。不要 duckOthers，否则一开游戏就把别的 App 压小。
+            try s.setCategory(.ambient, options: [.mixWithOthers])
             try s.setActive(true, options: [])
         } catch {
             CAPLog.print("NativeAudio session: \(error)")

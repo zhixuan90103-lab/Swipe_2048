@@ -6,6 +6,7 @@ import {
   getAmazeMoveMs,
   type AmazeState,
 } from './amaze';
+import { CATCH_UP_MIN_MS, parseTransformXY } from './motion';
 
 function translate(x: number, y: number, cell: number): string {
   const g = AMAZE_GAP;
@@ -68,12 +69,21 @@ export function paintAmaze(root: HTMLElement, s: AmazeState, animate: boolean): 
   tile.style.height = `${cell}px`;
   const from = s.previous ?? { x: s.x, y: s.y };
   const dist = Math.abs(s.x - from.x) + Math.abs(s.y - from.y);
+  const g = AMAZE_GAP;
+  const rest = { x: g + from.x * (cell + g), y: g + from.y * (cell + g) };
+  const cur = parseTransformXY(getComputedStyle(tile).transform);
+  const flying = !!cur && Math.hypot(cur.x - rest.x, cur.y - rest.y) > 2;
   const ms = animate && dist > 0 ? dist * getAmazeMoveMs() : 0;
-  if (ms > 0) {
+  const catchMs =
+    animate && flying && dist > 0
+      ? Math.max(CATCH_UP_MIN_MS, Math.round(dist * getAmazeMoveMs() * 0.55))
+      : ms;
+  if (catchMs > 0) {
     tile.style.transition = 'none';
-    tile.style.transform = translate(from.x, from.y, cell);
+    if (flying && cur) tile.style.transform = `translate(${cur.x}px, ${cur.y}px)`;
+    else tile.style.transform = translate(from.x, from.y, cell);
     void tile.offsetWidth;
-    tile.style.transition = `transform ${ms}ms linear`;
+    tile.style.transition = `transform ${catchMs}ms linear`;
     tile.style.transform = translate(s.x, s.y, cell);
   } else {
     tile.style.transition = 'none';

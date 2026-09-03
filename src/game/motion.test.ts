@@ -2,8 +2,11 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
   boardTravelMs,
+  CATCH_UP_MIN_MS,
+  catchUpMs,
   cellsBetween,
   mergeStart,
+  parseTransformXY,
   popDelayMs,
   tileFontPx,
   tileTravelMs,
@@ -53,5 +56,18 @@ describe('motion', () => {
     assert.equal(tileFontPx(2, 1), tileFontPx(16, 1));
     assert.ok(tileFontPx(128, 1) < tileFontPx(16, 1));
     assert.ok(tileFontPx(1024, 1) < tileFontPx(128, 1));
+  });
+
+  it('parseTransformXY 读 matrix / translate', () => {
+    assert.deepEqual(parseTransformXY('matrix(1, 0, 0, 1, 80, 12)'), { x: 80, y: 12 });
+    assert.deepEqual(parseTransformXY('translate(10px, 20px)'), { x: 10, y: 20 });
+    assert.equal(parseTransformXY('none'), null);
+  });
+
+  it('catchUp 半路比整段短且不少于 48ms', () => {
+    const full = tileTravelMs({ x: 0, y: 0 }, { x: 3, y: 0 }, per);
+    const mid = catchUpMs({ x: 80, y: 8 }, { x: 3, y: 0 }, per, 1);
+    assert.ok(mid < full);
+    assert.ok(mid >= CATCH_UP_MIN_MS);
   });
 });

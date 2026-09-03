@@ -32,6 +32,7 @@
 | 方块运动 | `docs/MOTION.md` |
 | 最佳手感检索 | `docs/SWIPE-RESEARCH-2026-09.md` |
 | 原版 UI 实测 | `docs/UI-ORIGINAL.md` |
+| 手感回路 | `docs/FEEL-LOOP.md` |
 
 ## DOM（勿拆）
 

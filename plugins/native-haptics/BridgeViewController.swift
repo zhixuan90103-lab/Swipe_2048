@@ -16,10 +16,22 @@ final class BridgeViewController: CAPBridgeViewController {
         false
     }
 
-    /// 底边系统手势（Home / 多任务）要滑两次才生效，第一次优先给游戏。
+    /// 底边：第一次滑给游戏，回桌面需再滑。
     /// 不要同时 prefersHomeIndicatorAutoHidden，否则 defer 会失效。
+    /// 从上往下扫过 Home 条的「半屏」是 Reachability，无公开 API 可关。
     override var preferredScreenEdgesDeferringSystemGestures: UIRectEdge {
         .bottom
+    }
+
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        if let scroll = webView?.scrollView {
+            scroll.bounces = false
+            scroll.alwaysBounceVertical = false
+            scroll.alwaysBounceHorizontal = false
+            scroll.isScrollEnabled = false
+        }
+        setNeedsUpdateOfScreenEdgesDeferringSystemGestures()
     }
 
     override func capacitorDidLoad() {

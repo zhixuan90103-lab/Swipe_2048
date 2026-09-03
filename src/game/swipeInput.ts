@@ -1,5 +1,6 @@
 /**
- * Event layer: Pointer → evaluateSegment. Spec: docs/SWIPE-DESIGN.md
+ * Event layer: Pointer → evaluateSegment.
+ * Spec: docs/SWIPE-DESIGN.md · docs/FEEL-LOOP.md
  */
 
 import { DESIGN_WIDTH } from '../adapt/design';
@@ -12,7 +13,7 @@ import {
   type Axis,
   type SegmentDecision,
 } from './swipeSegment';
-import { alongSpeed, createVelocityWindow, LIFT_SPEED_TAIL_MS } from './swipeVelocity';
+import { alongSpeed, createVelocityWindow, liftTailMs } from './swipeVelocity';
 
 export type SwipeInputOptions = {
   target: HTMLElement;
@@ -57,6 +58,7 @@ export function attachSwipeInput(opts: SwipeInputOptions): SwipeHandle {
   let retryTimer = 0;
   let commitTimer = 0;
   let lastFireAt = 0;
+  let holdStart = 0;
   let ignoreFire = false;
   let slowDrag = false;
   /** busy 期间已抬手、本段还没走棋：settle 后立刻判定，不清段 */
@@ -109,7 +111,8 @@ export function attachSwipeInput(opts: SwipeInputOptions): SwipeHandle {
     const dx = lastX - segX;
     const dy = lastY - segY;
     const lock: Axis = axis ?? (Math.abs(dx) > Math.abs(dy) ? 1 : 0);
-    const spd = vel.axisSpeed(performance.now(), fromLift ? LIFT_SPEED_TAIL_MS : 0);
+    const now = performance.now();
+    const spd = vel.axisSpeed(now, fromLift ? liftTailMs(now - holdStart) : 0);
     return {
       dx,
       dy,
@@ -181,6 +184,7 @@ export function attachSwipeInput(opts: SwipeInputOptions): SwipeHandle {
       firedThisHold = false;
       slowDrag = false;
       liftQueued = false;
+      holdStart = performance.now();
       ignoreFire = lastY > window.innerHeight - homeBandPx();
     } else {
       consumeSegment();
@@ -211,7 +215,7 @@ export function attachSwipeInput(opts: SwipeInputOptions): SwipeHandle {
     if (e.pointerType === 'mouse' && e.button !== 0) return;
     if (isChrome(e.target)) return;
     e.preventDefault();
-    grab(e, !holding);
+    grab(e, true);
     target.focus({ preventScroll: true });
   };
 

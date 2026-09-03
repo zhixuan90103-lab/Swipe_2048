@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { alongSpeed, createVelocityWindow } from './swipeVelocity.ts';
+import { alongSpeed, createVelocityWindow, liftTailMs } from './swipeVelocity.ts';
 
 describe('velocity window', () => {
   it('样本不足为 0', () => {
@@ -27,6 +27,11 @@ describe('velocity window', () => {
     v.push(200, 42, 0);
     const s = v.axisSpeed();
     assert.ok(Math.abs(s.x) < 80);
+  });
+
+  it('短按快甩不剥揭指尾巴', () => {
+    assert.equal(liftTailMs(80), 0);
+    assert.ok(liftTailMs(200) > 0);
   });
 
   it('抬手揭指尾巴不计入速度（慢滑末段假甩）', () => {

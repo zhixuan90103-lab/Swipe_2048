@@ -1,6 +1,6 @@
 # Swipe_2048 — 现行实现
 
-日期：**2026-09-02**。默认值以 `src/game/feel.ts` 的 `FEEL_DEFAULT` / `FEEL2_DEFAULT` 为准。音效以 [AUDIO.md](./AUDIO.md) 为准。
+日期：**2026-09-03**。默认值以 `src/game/feel.ts` 的 `FEEL_DEFAULT` / `FEEL2_DEFAULT` 为准。音效以 [AUDIO.md](./AUDIO.md) 为准。手感回路（结束层 / 斜滑 / 慢滑 / 打断）以 [FEEL-LOOP.md](./FEEL-LOOP.md) 为准。
 
 | 规范 | 文件 |
 |------|------|
@@ -20,7 +20,7 @@ TypeScript + Three.js WebGPU + Vite + Capacitor iOS。设计空间 **390×844**�
 | 模式 | 规则 | 默认手感 |
 |------|------|----------|
 | **2048**（`merge`） | 4×4 合并；仅 `moved` 才出新块 | **手感2 甩动** |
-| **单块**（`solo`） | 同一 4×4，一颗块滑到墙 | **手感1 距离** |
+| **涂色**（`solo`） | 7×9 涂色迷宫，滑到墙 | **手感1 距离** |
 
 输入：手写 **Pan → 离散四向**。滑距 ≠ 停点。不用系统 UISwipe。
 
@@ -48,11 +48,11 @@ UI 对齐中文原版 2048（[UI-ORIGINAL.md](./UI-ORIGINAL.md)）。
 | 慢但方向清楚 | 距离够就走 | **不走棋**。本按下一旦出现「距离已够、速度不够」即锁成慢滑，之后再加速或快抬手也不走。抬手揭指不写入速度窗，且忽略抬手前 32ms。 |
 | 按住 | 可转向；`sameDirRepeat` 可连走 | **每次按下只一步** |
 
-`pointercancel` 不断按住。busy 时不判定。全屏 window pointer。busy 期间的新一段滑动不清掉：抬手则排队，动画结束立刻判定；按住则 settle 后直接判定，不当上一手余量 consume。
+`pointercancel` 不断按住。全屏 window pointer。**走棋不等动画**：`busy` 不挡下一手；清段只在出手/抬手。画面打断时从当前 transform 接到新格。仅 `state.over` 挡 2048 输入。
 
 底边系统手势：原生 `preferredScreenEdgesDeferringSystemGestures = .bottom`。底缘按下不走棋。本按下已走棋且未抬手、800ms 内进后台 → **撤回该步**。
 
-测试：`npm test`（`swipeSegment` + `swipeVelocity` + `motion` + `audioBatcher`）。
+测试：`npm test`（`swipeSegment` + `swipeVelocity` + `motion` + `hapticFeel` + `audioBatcher` + `amaze`）。
 
 ---
 
@@ -65,9 +65,11 @@ UI 对齐中文原版 2048（[UI-ORIGINAL.md](./UI-ORIGINAL.md)）。
 | `src/game/swipeInput.ts` | Pointer、后台撤回、底缘 |
 | `src/game/feel.ts` | 旋钮与两套默认 |
 | `src/game/feelPanel.ts` | 设置表 |
-| `src/game/game2048.ts` | 模式、HUD、busy |
+| `src/game/game2048.ts` | 模式、HUD、走棋 |
+| `src/game/overlay.ts` | 结束层 DOM / show-hide |
 | `src/game/board.ts` | 4×4 合并 |
-| `src/game/solo.ts` | 单块 |
+| `src/game/amaze.ts` · `amazeView.ts` | 涂色盘逻辑与绘制 |
+| `src/game/solo.ts` | 旧单块（现未作为默认 solo） |
 | `src/game/motion.ts` | 滑移/合并/字号纯函数 |
 | `src/game/tilePool.ts` | 棋盘 DOM 池 |
 | `src/game/view.ts` | 画到池里 |
@@ -116,10 +118,10 @@ UI 对齐中文原版 2048（[UI-ORIGINAL.md](./UI-ORIGINAL.md)）。
 | commitPx | 30 |
 | speedPxS | 200 |
 | tileMoveMs | 70 |
-| slideMs | **70** |
+| slideMs | **65** |
 | appearMs | **250** |
 | mergePopMs | **200** |
-| inputLockMs | 50 |
+| inputLockMs | **0** |
 | rearmMs | 0 |
 
 `slideEase` 仍为 **soft**。
@@ -142,7 +144,7 @@ UI 对齐中文原版 2048（[UI-ORIGINAL.md](./UI-ORIGINAL.md)）。
 
 全文：[MOTION.md](./MOTION.md)。
 
-- 时长 = 格数 × 每格毫秒；整段一条曲线。2048 默认 **70ms/格、更柔**。  
+- 时长 = 格数 × 每格毫秒；整段一条曲线。2048 默认 **65ms/格、更柔**。  
 - 合并：新数字从较远源块滑来，弹 `1 → 1.1 → 1`。  
 - 新块等最远块到位再 appear（2048 默认 250ms）。  
 - 无效：整盘 **沿该次滑动方向** 回弹（5px / 350ms，幅度先大后小）。  
@@ -164,7 +166,7 @@ UI 对齐中文原版 2048（[UI-ORIGINAL.md](./UI-ORIGINAL.md)）。
 |------|------|
 | 玩法 | 2048 + 单块；黄块切换 |
 | 手势 | 段锁轴 + 两套出手（距离 / 甩动） |
-| 每格滑移 | **70ms**（曾 80 → 75 → 70） |
+| 每格滑移 | **65ms**（曾 80 → 75 → 70 → 65） |
 | 滑移曲线 | `slideEase`：soft / out / linear |
 | 出现 / 合并弹 | 手感2：250ms / 200ms |
 | 棋盘 | `boardScale` **1.1**，`boardY` **0**（曾 1.09 / 20） |

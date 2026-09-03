@@ -3,7 +3,7 @@
 日期：2026-09-01。  
 本页是 **方块怎么动** 的规范。手势判定仍以 [SWIPE-DESIGN.md](./SWIPE-DESIGN.md) 为准；出手默认值、设置项以 [IMPLEMENTATION.md](./IMPLEMENTATION.md) 为准。
 
-现行默认（2048 / 手感2）：**70ms/格**、曲线 **soft**、出现 **250ms**、合并弹 **200ms**、无效回弹 **5px / 350ms**。
+现行默认（2048 / 手感2）：**65ms/格**、曲线 **soft**、出现 **250ms**、合并弹 **200ms**、无效回弹 **5px / 350ms**。输入锁 **0**。
 
 对照来源：中文原版 2048 录屏与截图（非 Cirulli 网页的「全员同时长 + 源块淡出」）。
 
@@ -43,12 +43,12 @@ transform: start → end，一次 CSS transition
 
 | 模式 | msPerCell | 曲线 |
 |------|-----------|------|
-| 2048 | `feel.slideMs`（默认 **70**） | `feel.slideEase`：更柔 / 先快后慢 / 匀速 |
+| 2048 | `feel.slideMs`（默认 **65**） | `feel.slideEase`：更柔 / 先快后慢 / 匀速 |
 | 单块 | `feel.tileMoveMs`（默认 60） | **linear** |
 
 更柔 CSS：`cubic-bezier(0.39, 0.575, 0.565, 1)`（正弦 ease-out）。
 
-输入锁等到 **本步最长** `duration` + `inputLockMs`。新块 appear 的 delay 也用这个最长值。
+输入 **不再等** 滑移结束；下一手立刻改逻辑盘。画面从当前像素接到新格（打断时最短约 48ms）。新块 appear 的 delay 仍用本步最长滑移；若该块已在飞则不再 appear。
 
 ---
 

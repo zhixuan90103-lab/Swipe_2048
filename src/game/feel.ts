@@ -80,10 +80,10 @@ export const FEEL2_DEFAULT: Feel = {
   commitPx: 30,
   speedPxS: 200,
   tileMoveMs: 70,
-  slideMs: 70,
+  slideMs: 65,
   appearMs: 250,
   mergePopMs: 200,
-  inputLockMs: 50,
+  inputLockMs: 0,
   rearmMs: 0,
 };
 
@@ -160,7 +160,7 @@ export const FEEL_FIELDS: {
   {
     key: 'slideMs',
     label: '每格滑移',
-    why: '穿过 1 格的时间。走 3 格约 3 倍时长，比走 2 格晚到。默认 70ms/格。',
+    why: '穿过 1 格的时间。走 3 格约 3 倍时长，比走 2 格晚到。手感2 默认 65ms/格。',
     kind: 'range',
     min: 20,
     max: 200,

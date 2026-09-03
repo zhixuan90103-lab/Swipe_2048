@@ -4,6 +4,8 @@
 
 桌面 **WebAudio**；iOS **`plugins/native-audio/`**（AVAudioEngine）。热路径禁止 `new Audio()`、禁止每发一次桥、iOS 生产禁止 WebAudio。
 
+iOS session：`.ambient` + `.mixWithOthers`（与后台音乐共存）。**不要** `.duckOthers`，否则一进游戏就把其他 App 音量压低。静音拨片仍会静音本游戏效。
+
 ---
 
 ## 0. 现行产品

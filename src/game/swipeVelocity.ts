@@ -4,6 +4,12 @@ const WINDOW_MS = 80;
 const MIN_DT_MS = 12;
 /** 抬手揭指：不算进速度窗的末尾（ms）。慢滑 + 抬手假甩不应出手。 */
 export const LIFT_SPEED_TAIL_MS = 32;
+/** 整段按下短于此则不剥揭指尾巴（快甩本身就在末 32ms 里）。 */
+export const LIFT_TAIL_MIN_HOLD_MS = 120;
+
+export function liftTailMs(holdMs: number): number {
+  return holdMs >= LIFT_TAIL_MIN_HOLD_MS ? LIFT_SPEED_TAIL_MS : 0;
+}
 
 type Sample = { t: number; x: number; y: number };
 

@@ -30,8 +30,8 @@ export type HapticFeel = {
 };
 
 export const HAPTIC_FEEL_DEFAULT: HapticFeel = {
-  slideI: 0.7,
-  slideS: 0.7,
+  slideI: 0.3,
+  slideS: 0.3,
   mergeIMin: 0.7,
   mergeIMax: 0.95,
   mergeSMin: 0.7,
@@ -41,7 +41,7 @@ export const HAPTIC_FEEL_DEFAULT: HapticFeel = {
   nudgeBounceI: 0.4,
   nudgeS: 0.7,
   nudgeTailI: 0.14,
-  pulseTailI: 0.16,
+  pulseTailI: 0.2,
 };
 
 /** Slide/merge aftertouch — short so combo slides do not rumble. */

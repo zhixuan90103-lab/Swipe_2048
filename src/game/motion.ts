@@ -101,3 +101,51 @@ export function cellTranslate(x: number, y: number, scale: number): string {
   const g = GAP * scale;
   return `translate(${g + x * (c + g)}px, ${g + y * (c + g)}px)`;
 }
+
+export function cellPx(x: number, y: number, scale: number): Cell {
+  const c = CELL * scale;
+  const g = GAP * scale;
+  return { x: g + x * (c + g), y: g + y * (c + g) };
+}
+
+export function parseTransformXY(t: string): { x: number; y: number } | null {
+  if (!t || t === 'none') return null;
+  const m3 = t.match(/matrix3d\((.+)\)/);
+  if (m3) {
+    const p = m3[1].split(',').map((s) => Number(s.trim()));
+    if (p.length >= 14 && Number.isFinite(p[12]) && Number.isFinite(p[13])) {
+      return { x: p[12]!, y: p[13]! };
+    }
+  }
+  const m = t.match(/matrix\((.+)\)/);
+  if (m) {
+    const p = m[1].split(',').map((s) => Number(s.trim()));
+    if (p.length >= 6 && Number.isFinite(p[4]) && Number.isFinite(p[5])) {
+      return { x: p[4]!, y: p[5]! };
+    }
+  }
+  const tr = t.match(/translate\(([-0-9.]+)px,\s*([-0-9.]+)px\)/);
+  if (tr) {
+    const x = Number(tr[1]);
+    const y = Number(tr[2]);
+    if (Number.isFinite(x) && Number.isFinite(y)) return { x, y };
+  }
+  return null;
+}
+
+/** 打断过渡最短时长（设计 ms）。 */
+export const CATCH_UP_MIN_MS = 48;
+
+/** 从当前像素赶到目标格。打断时用。 */
+export function catchUpMs(
+  fromPx: { x: number; y: number },
+  to: Cell,
+  anim: PaintAnim,
+  scale: number,
+): number {
+  const dest = cellPx(to.x, to.y, scale);
+  const step = (CELL + GAP) * scale;
+  const dist = Math.hypot(fromPx.x - dest.x, fromPx.y - dest.y);
+  const cells = step > 0 ? dist / step : 1;
+  return Math.max(CATCH_UP_MIN_MS, Math.round(Math.max(0.25, cells) * anim.durationMs));
+}

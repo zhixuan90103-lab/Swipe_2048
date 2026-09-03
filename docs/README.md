@@ -5,6 +5,7 @@
 | 文件 | 角色 |
 |------|------|
 | **IMPLEMENTATION.md** | **产品与实现现状**（玩法、两套手感、UI、现行默认、改动摘要） |
+| **FEEL-LOOP.md** | **手感回路设计**（结束层、斜滑意图、慢滑锁、走棋打断画面） |
 | **MOTION.md** | **方块怎么动**（速度模型、合并/出现、字号、对象池） |
 | **SWIPE-DESIGN.md** | 手势状态机（判定纯函数 + 事件层）。手感2 扩展见文首「现行产品」 |
 | **SWIPE-RESEARCH-2026-09.md** | 检索计划与结论：为何两套手感、速度怎么测 |
@@ -19,4 +20,4 @@
 | ENTRYPOINTS.md | 入口链 |
 | UI-ORIGINAL.md | 原版截图实测：尺寸/位置/颜色 |
 
-**规范优先级：** 手势判定以 `SWIPE-DESIGN.md` 为准；方块运动以 `MOTION.md` 为准；默认值、模式绑定、UI 以 `IMPLEMENTATION.md` 为准；音效以 `AUDIO.md` 为准；玩法震动以 `HAPTICS-GAME.md` 为准。代码与文档冲突时改文档或改代码，不要并列两套默认。
+**规范优先级：** 手势判定以 `SWIPE-DESIGN.md` 为准；手感回路（结束层/斜滑/慢滑/打断）以 `FEEL-LOOP.md` 为准；方块运动以 `MOTION.md` 为准；默认值、模式绑定、UI 以 `IMPLEMENTATION.md` 为准；音效以 `AUDIO.md` 为准；玩法震动以 `HAPTICS-GAME.md` 为准。代码与文档冲突时改文档或改代码，不要并列两套默认。

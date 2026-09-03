@@ -33,8 +33,12 @@ export function beginFrame(pool: TileEl[]): void {
   for (const el of pool) el.dataset.busy = '0';
 }
 
-export function acquireTile(layer: HTMLElement, pool: TileEl[]): TileEl {
-  let el = pool.find((e) => e.dataset.busy !== '1');
+export function acquireTile(layer: HTMLElement, pool: TileEl[], preferId?: string): TileEl {
+  let el =
+    preferId !== undefined
+      ? pool.find((e) => e.dataset.busy !== '1' && e.dataset.id === preferId)
+      : undefined;
+  if (!el) el = pool.find((e) => e.dataset.busy !== '1');
   if (!el) {
     el = makeTile();
     pool.push(el);
