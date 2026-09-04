@@ -1,11 +1,10 @@
 import {
-  FEEL_FIELDS,
   SLIDE_EASE_OPTIONS,
   applyFeelCss,
-  defaultsFor,
+  defaultFeelForMode,
+  fieldsFor,
   type Feel,
   type FeelMode,
-  type FeelScheme,
   type SlideEase,
 } from './feel';
 import {
@@ -54,11 +53,7 @@ export function mountFeelPanel(
       <div class="feel-head">
         <strong>设置</strong>
         <span id="feel-blurb"></span>
-        <div class="feel-schemes" id="feel-schemes">
-          <button type="button" data-scheme="1">手感1 距离</button>
-          <button type="button" data-scheme="2">手感2 甩动</button>
-        </div>
-        <div class="feel-schemes" id="feel-sfx" style="margin-top:8px">
+        <div class="feel-schemes" id="feel-sfx">
           ${SFX_PACKS.map((p) => `<button type="button" data-sfx="${p.id}">${p.label}</button>`).join('')}
         </div>
         <div class="feel-schemes" id="feel-haptics" style="margin-top:8px">
@@ -107,11 +102,8 @@ export function mountFeelPanel(
     list.replaceChildren();
     blurb.textContent =
       mode === 'solo'
-        ? '单块：慢划也能走。手感2 要甩，每次按下只一步。'
-        : '2048：每格滑移越长，走得远的越晚到。手感2 要甩，每次按下只一步。';
-    wrap.querySelectorAll('[data-scheme]').forEach((b) => {
-      b.classList.toggle('on', Number((b as HTMLElement).dataset.scheme) === feel.scheme);
-    });
+        ? '涂色 · 手感1 距离：慢划也能走。点左上角标题切 2048。'
+        : '2048 · 手感2 甩动：够快才走，每次按下只一步。点左上角标题切涂色。';
     const pack = gameSfx.getPack();
     wrap.querySelectorAll('[data-sfx]').forEach((b) => {
       b.classList.toggle('on', Number((b as HTMLElement).dataset.sfx) === pack);
@@ -123,12 +115,10 @@ export function mountFeelPanel(
       b.classList.toggle('on', on === gameHaptics.isEnabled());
     });
 
-    for (const f of FEEL_FIELDS) {
-      if (f.schemes && !f.schemes.includes(feel.scheme)) continue;
-      if (f.modes && !f.modes.includes(mode)) continue;
+    for (const f of fieldsFor(mode)) {
       const row = document.createElement('label');
       row.className = 'feel-row';
-      const val = feel[f.key];
+      const val = (feel as unknown as Record<string, unknown>)[f.key];
       if (f.kind === 'check') {
         row.innerHTML = `
           <div class="feel-name">${f.label}</div>
@@ -142,7 +132,7 @@ export function mountFeelPanel(
           <div class="feel-schemes" data-choice="slideEase">
             ${SLIDE_EASE_OPTIONS.map(
               (o) =>
-                `<button type="button" data-ease="${o.id}" class="${feel.slideEase === o.id ? 'on' : ''}">${o.label}</button>`,
+                `<button type="button" data-ease="${o.id}" class="${feel.scheme === 2 && feel.slideEase === o.id ? 'on' : ''}">${o.label}</button>`,
             ).join('')}
           </div>
         `;
@@ -164,7 +154,7 @@ export function mountFeelPanel(
       <div class="feel-why">只改涂色盘大小，7×9 格数不变。与 2048 棋盘缩放无关。</div>
       <input type="range" data-amaze-cell="1" min="${AMAZE_CELL_MIN}" max="${AMAZE_CELL_MAX}" step="1" value="${mazeCell}" />
     `;
-    list.appendChild(mazeRow);
+    if (mode === 'solo') list.appendChild(mazeRow);
     const moveMs = getAmazeMoveMs();
     const moveRow = document.createElement('label');
     moveRow.className = 'feel-row';
@@ -173,7 +163,7 @@ export function mountFeelPanel(
       <div class="feel-why">数字越小滑得越快。只改涂色方块，与 2048 每格滑移无关。</div>
       <input type="range" data-amaze-move="1" min="${AMAZE_MOVE_MS_MIN}" max="${AMAZE_MOVE_MS_MAX}" step="5" value="${moveMs}" />
     `;
-    list.appendChild(moveRow);
+    if (mode === 'solo') list.appendChild(moveRow);
 
     hapticList.replaceChildren();
     const hf = getHapticFeel();
@@ -231,40 +221,19 @@ export function mountFeelPanel(
       onAmazeSize?.();
       return;
     }
-    const key = el?.dataset.key as keyof Feel | undefined;
+    const key = el.dataset.key;
     if (!key) return;
-    if (el.type === 'checkbox') feel = { ...feel, [key]: el.checked };
-    else feel = { ...feel, [key]: Number(el.value) };
+    const spec = fieldsFor(mode).find((x) => x.key === key);
+    if (el.type === 'checkbox') {
+      feel = { ...feel, [key]: el.checked } as Feel;
+    } else {
+      feel = { ...feel, [key]: Number(el.value) } as Feel;
+    }
     applyFeelCss(feel);
     onChange(feel);
     const em = el.parentElement?.querySelector('em');
-    const spec = FEEL_FIELDS.find((x) => x.key === key);
-    if (em && spec?.unit !== undefined) em.textContent = `${feel[key]}${spec.unit}`;
-  });
-
-  wrap.querySelector('#feel-schemes')!.addEventListener('click', (e) => {
-    const btn = (e.target as HTMLElement).closest('[data-scheme]') as HTMLElement | null;
-    if (!btn) return;
-    const scheme = Number(btn.dataset.scheme) as FeelScheme;
-    if (scheme !== 1 && scheme !== 2) return;
-    const keep = {
-      tileMoveMs: feel.tileMoveMs,
-      slideMs: feel.slideMs,
-      slideEase: feel.slideEase,
-      appearMs: feel.appearMs,
-      mergePopMs: feel.mergePopMs,
-      inputLockMs: feel.inputLockMs,
-      rearmMs: feel.rearmMs,
-      nudgePx: feel.nudgePx,
-      nudgeMs: feel.nudgeMs,
-      sameDirRepeat: feel.sameDirRepeat,
-      slopPx: feel.slopPx,
-      axisRatio: feel.axisRatio,
-      boardY: feel.boardY,
-      boardScale: feel.boardScale,
-    };
-    feel = { ...defaultsFor(scheme), ...keep, scheme };
-    emit();
+    const shown = (feel as unknown as Record<string, unknown>)[key];
+    if (em && spec?.unit !== undefined) em.textContent = `${shown}${spec.unit}`;
   });
 
   list.addEventListener('click', (e) => {
@@ -272,6 +241,7 @@ export function mountFeelPanel(
     if (!btn) return;
     const id = btn.dataset.ease as SlideEase;
     if (id !== 'out' && id !== 'soft' && id !== 'linear') return;
+    if (feel.scheme !== 2) return;
     feel = { ...feel, slideEase: id };
     emit();
   });
@@ -301,7 +271,7 @@ export function mountFeelPanel(
   });
 
   wrap.querySelector('#feel-reset')!.addEventListener('click', () => {
-    feel = defaultsFor(feel.scheme);
+    feel = defaultFeelForMode(mode);
     emit();
   });
 

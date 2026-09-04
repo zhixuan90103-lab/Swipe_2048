@@ -195,6 +195,9 @@ describe('evaluateSegment', () => {
 
   it('已锁略偏下：下不动右能动仍 fire 下，不改判', () => {
     const d = ev({
+      scheme: 2,
+      speed: 800,
+      speedMin: 400,
       axis: 0,
       dx: 12,
       dy: 40,
@@ -205,30 +208,54 @@ describe('evaluateSegment', () => {
   });
 
   it('未锁 45° 仅右能动则走右', () => {
-    const d = ev({ dx: 80, dy: 80, legal: (dir) => dir === 1 });
+    const d = ev({
+      scheme: 2,
+      speedX: 800,
+      speedY: 800,
+      speedMin: 400,
+      dx: 80,
+      dy: 80,
+      legal: (dir) => dir === 1,
+    });
     assert.deepEqual(d, { axis: 1, fire: 1, consume: true });
   });
 
   it('未锁 45° 两向都能动则不出手', () => {
-    const d = ev({ dx: 80, dy: 80, legal: () => true });
+    const d = ev({
+      scheme: 2,
+      speedX: 800,
+      speedY: 800,
+      speedMin: 400,
+      dx: 80,
+      dy: 80,
+      legal: () => true,
+    });
     assert.deepEqual(d, { axis: null, fire: null, consume: false });
   });
 
   it('未锁 45° 两向都不能动则较长轴 dead（平手向下）', () => {
-    const d = ev({ dx: 80, dy: 80, legal: () => false });
+    const d = ev({ scheme: 2, dx: 80, dy: 80, legal: () => false });
     assert.equal(d.fire, null);
     assert.equal(d.consume, true);
     assert.equal(d.dead, 2);
   });
 
   it('未锁约 40° 仅右能动则走右', () => {
-    const d = ev({ dx: 42, dy: 50, legal: (dir) => dir === 1 });
+    const d = ev({
+      scheme: 2,
+      speedX: 800,
+      speedY: 800,
+      speedMin: 400,
+      dx: 42,
+      dy: 50,
+      legal: (dir) => dir === 1,
+    });
     assert.equal(d.fire, 1);
     assert.equal(d.axis, 1);
   });
 
   it('未锁约 35° 灰区不改判', () => {
-    const d = ev({ dx: 35, dy: 50, legal: (dir) => dir === 1 });
+    const d = ev({ scheme: 2, dx: 35, dy: 50, legal: (dir) => dir === 1 });
     assert.equal(d.fire, null);
     assert.equal(d.axis, null);
     assert.equal(d.consume, false);

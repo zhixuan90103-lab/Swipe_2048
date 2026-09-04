@@ -20,8 +20,9 @@
 3. **手感2：先慢后快也不走**  
    本按下一旦 `along ≥ commit` 且窗速度不够，锁 `slowDrag`。抬手不写入速度窗；按下超过约 120ms 才剥末 32ms 揭指。短快甩不剥。
 
-4. **走棋不等动画（A′）**  
-   `isBlocked` 仅 `merge && over`。清段只在出手瞬间和抬手。画面从当前 `transform` 接到新格，打断最短 `CATCH_UP_MIN_MS`（48ms）；打断时不播 appear/pop。
+4. **2048 走棋不等动画（A′）。涂色滑移中可 90° 转弯**  
+   2048：`isBlocked` 仅 `merge && over`。清段只在出手瞬间和抬手。画面从当前 `transform` 接到新格，打断最短 `CATCH_UP_MIN_MS`（48ms）；打断时不播 appear/pop。  
+   **涂色：** 滑移途中只接受垂直方向：先赶到当前轴上将到达的格，再沿新向滑到墙。同向 / 反向忽略。不斜接。
 
 5. **系统手势与走棋互斥**  
    按下点在 **顶或底安全区** → 本段不 `onMove`、不 nudge。  
@@ -37,7 +38,7 @@
 ## 分层
 
 ```
-判定  swipeSegment + swipeVelocity     纯函数，可单测
+判定  swipeFeel1 / swipeFeel2 + swipeVelocity     纯函数，可单测
 事件  swipeInput                       pointer / 安全区忽略 / 后台撤回
 玩法  board + amaze + game2048         逻辑盘立刻结算
 表现  view + amazeView + tilePool      可打断；从像素接过去
@@ -83,7 +84,7 @@ iOS   BridgeViewController             不 defer 底边；细带两次拦向下
 
 ## 走棋与画面
 
-- `tryDir` 立刻 `applyMove` / `moveAmaze`，无输入 busy。  
+- 2048：`tryDir` 立刻 `applyMove`，无输入 busy。涂色：滑移中垂直滑可转弯，同向/反向丢掉。  
 - `paintBoard`：快照 computed transform（id；合并看源块），同 id 复用池，`catchUpMs` 接到新格。  
 - 成功走棋去掉 `g-nudge`。音效/震动跟逻辑出手。  
 - 游戏层不因滑移结束调用 `onMoveSettled`。

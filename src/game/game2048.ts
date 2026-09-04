@@ -8,18 +8,26 @@ import {
 } from './feel';
 import { mountFeelPanel } from './feelPanel';
 import { attachSwipeInput, type SwipeHandle } from './swipeInput';
-import { maxTravelCells } from './motion';
+import { maxTravelCells, parseTransformXY } from './motion';
 import { gameSfx } from '../utils/gameSfx';
 import { gameHaptics } from '../utils/gameHaptics';
 import { nudgeBoard, paintBoard, slideDurationMs, type PaintAnim } from './view';
 import {
+  AMAZE_GAP,
+  applySlide,
   cloneAmaze,
+  dirsArePerpendicular,
+  flightPivotIndex,
+  getAmazeCell,
+  getAmazeMoveMs,
   moveAmaze,
   newAmazeRun,
+  nextAmaze,
   retryAmaze,
+  slideAmaze,
   type AmazeState,
 } from './amaze';
-import { mountAmaze, paintAmaze } from './amazeView';
+import { amazeCellPx, mountAmaze, paintAmaze } from './amazeView';
 import { bindOverlay, OVERLAY_HTML } from './overlay';
 
 type Mode = 'merge' | 'solo';
@@ -88,6 +96,16 @@ export function startGame2048(opts: {
   let best = Number(localStorage.getItem(BEST_KEY) || '0');
   let soloBest = Number(localStorage.getItem(SOLO_BEST_KEY) || '0');
   let fxTimer = 0;
+  let flight: {
+    origin: AmazeState;
+    from: { x: number; y: number };
+    dir: Dir;
+    path: { x: number; y: number }[];
+    startedAt: number;
+    msPerCell: number;
+  } | null = null;
+  let flightTimer = 0;
+  let hopTimer = 0;
   let swipe: SwipeHandle;
   let pending:
     | { mode: 'merge'; state: BoardState; best: number }
@@ -103,7 +121,7 @@ export function startGame2048(opts: {
     titleEl.textContent = isSolo ? '涂色' : '2048';
     titleEl.classList.toggle('g-logo-solo', isSolo);
     introEl.textContent = isSolo
-      ? `第 ${amaze.level} 关 · 滑到边，躲开带 X 的格子`
+      ? `第 ${amaze.level} 关 · ${amaze.moves} / ${amaze.par} 步`
       : '合并这些数字以得到2048方块！';
     if (isSolo) {
       scoreEl.textContent = String(amaze.score);
@@ -126,7 +144,7 @@ export function startGame2048(opts: {
   };
 
   const paintAnim = (): PaintAnim =>
-    mode === 'solo'
+    feel.scheme === 1
       ? { durationMs: feel.tileMoveMs, easing: 'linear', perCell: true }
       : {
           durationMs: feel.slideMs,
@@ -186,31 +204,120 @@ export function startGame2048(opts: {
     gameHaptics.slide(cells);
   };
 
+  const clearFlight = () => {
+    flight = null;
+    window.clearTimeout(flightTimer);
+    window.clearTimeout(hopTimer);
+  };
+
+  const beginAmazeLeg = (
+    origin: AmazeState,
+    from: { x: number; y: number },
+    dir: Dir,
+    path: { x: number; y: number }[],
+    fromPx: { x: number; y: number } | null,
+    hopMs: number,
+  ) => {
+    window.clearTimeout(flightTimer);
+    window.clearTimeout(hopTimer);
+    flight = {
+      origin,
+      from,
+      dir,
+      path,
+      startedAt: performance.now() + Math.max(0, hopMs),
+      msPerCell: getAmazeMoveMs(),
+    };
+    const goDest = () => {
+      if (flight) flight.startedAt = performance.now();
+      const ms = paintAmaze(mazeEl, amaze, true);
+      flightTimer = window.setTimeout(() => {
+        flight = null;
+      }, ms);
+    };
+    if (fromPx && hopMs > 12) {
+      const hopState: AmazeState = {
+        ...amaze,
+        x: from.x,
+        y: from.y,
+        previous: { ...from },
+      };
+      paintAmaze(mazeEl, hopState, true, fromPx);
+      hopTimer = window.setTimeout(goDest, hopMs);
+    } else {
+      goDest();
+    }
+  };
+
+  const tryAmazeTurn = (dir: Dir): boolean => {
+    if (!flight || !dirsArePerpendicular(flight.dir, dir)) return false;
+    const elapsed = performance.now() - flight.startedAt;
+    const idx = flightPivotIndex(elapsed, flight.msPerCell, flight.path.length);
+    const pivot = idx < 0 ? flight.from : flight.path[idx]!;
+    const prefix = idx < 0 ? [] : flight.path.slice(0, idx + 1);
+    const atPivot = applySlide(cloneAmaze(flight.origin), flight.from, prefix);
+    if (atPivot.won) {
+      amaze = atPivot;
+      clearFlight();
+      paintAmaze(mazeEl, amaze, true);
+      hud();
+      gameSfx.win();
+      gameHaptics.win(80);
+      return true;
+    }
+    const sl = slideAmaze(atPivot, pivot.x, pivot.y, dir);
+    if (!sl.moved) return true;
+    const tile = mazeEl.querySelector('.maze-tile') as HTMLElement | null;
+    const fromPx = tile ? parseTransformXY(getComputedStyle(tile).transform) : null;
+    const beforePaint = atPivot.paintedCount;
+    amaze = moveAmaze(atPivot, dir).state;
+    const hop = fromPx ? amazeCellPx(pivot.x, pivot.y) : { x: 0, y: 0 };
+    const hopDist = fromPx ? Math.hypot(fromPx.x - hop.x, fromPx.y - hop.y) : 0;
+    const step = getAmazeCell() + AMAZE_GAP;
+    const hopMs = step > 0 ? Math.round((hopDist / step) * getAmazeMoveMs()) : 0;
+    mazeEl.classList.remove('g-nudge');
+    beginAmazeLeg(cloneAmaze(atPivot), pivot, dir, sl.path, fromPx, hopMs);
+    hud();
+    floatScore(amaze.paintedCount - beforePaint);
+    gameSfx.slide(Math.max(1, sl.cells));
+    gameHaptics.slide(1);
+    if (amaze.won) {
+      gameSfx.win();
+      gameHaptics.win(80);
+    }
+    return true;
+  };
+
   const tryDir = (dir: Dir) => {
     if (mode === 'solo') {
-      const { state: next, moved, scoreDelta } = moveAmaze(amaze, dir);
-      if (!moved) {
+      if (amaze.won) return;
+      if (flight) {
+        tryAmazeTurn(dir);
+        return;
+      }
+      const origin = cloneAmaze(amaze);
+      const sl = slideAmaze(amaze, amaze.x, amaze.y, dir);
+      if (!sl.moved) {
         nudgeBoard(mazeEl, feel.nudgeMs, dir);
         gameSfx.nudge();
         gameHaptics.nudge(feel.nudgeMs);
         return;
       }
       if (swipe?.isHolding() && !pending) {
-        pending = { mode: 'solo', amaze: cloneAmaze(amaze), best: soloBest };
+        pending = { mode: 'solo', amaze: origin, best: soloBest };
       }
-      amaze = next;
+      const played = moveAmaze(amaze, dir);
+      amaze = played.state;
       mazeEl.classList.remove('g-nudge');
-      paintAmaze(mazeEl, amaze, true);
+      beginAmazeLeg(origin, { x: origin.x, y: origin.y }, dir, sl.path, null, 0);
       hud();
-      floatScore(scoreDelta);
-      gameSfx.slide(
-        Math.max(
-          1,
-          Math.abs((amaze.previous?.x ?? amaze.x) - amaze.x) +
-            Math.abs((amaze.previous?.y ?? amaze.y) - amaze.y),
-        ),
-      );
+      floatScore(played.scoreDelta);
+      gameSfx.slide(Math.max(1, sl.cells));
       gameHaptics.slide(1);
+      if (amaze.won) {
+        gameSfx.win();
+        gameHaptics.win(80);
+      }
       return;
     }
     if (state.over) return;
@@ -245,6 +352,7 @@ export function startGame2048(opts: {
 
   const reset = () => {
     window.clearTimeout(fxTimer);
+    clearFlight();
     gameSfx.clearPending();
     gameHaptics.clearPending();
     overlay.hide();
@@ -280,7 +388,8 @@ export function startGame2048(opts: {
   mazeEl.querySelector('.maze-retry')!.addEventListener('click', () => {
     gameSfx.ui();
     gameHaptics.ui();
-    amaze = retryAmaze(amaze);
+    clearFlight();
+    amaze = amaze.won ? nextAmaze(amaze) : retryAmaze(amaze);
     render(false);
   });
 
@@ -310,7 +419,7 @@ export function startGame2048(opts: {
   swipe = attachSwipeInput({
     target: stage,
     getFeel: () => feel,
-    isBlocked: () => mode === 'merge' && state.over,
+    isBlocked: () => (mode === 'merge' && state.over) || (mode === 'solo' && amaze.won),
     onMove: tryDir,
     getLegal: () => (mode === 'merge' ? (dir: Dir) => canMove(state, dir) : undefined),
     onInvalid: (dir) => {
@@ -335,6 +444,7 @@ export function startGame2048(opts: {
         localStorage.setItem(BEST_KEY, String(best));
       }
       pending = null;
+      clearFlight();
       gameSfx.clearPending();
       gameHaptics.clearPending();
       render(false);
@@ -344,6 +454,7 @@ export function startGame2048(opts: {
   return {
     dispose: () => {
       window.clearTimeout(fxTimer);
+      clearFlight();
       gameSfx.clearPending();
       gameHaptics.clearPending();
       panel.dispose();

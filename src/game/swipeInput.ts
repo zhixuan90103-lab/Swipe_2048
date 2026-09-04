@@ -5,14 +5,15 @@
 
 import { DESIGN_WIDTH } from '../adapt/design';
 import type { Dir } from './board';
-import { FEEL_DEFAULT, type Feel } from './feel';
+import { FEEL1_DEFAULT, type Feel } from './feel';
+import { evaluateFeel1 } from './swipeFeel1';
+import { evaluateFeel2 } from './swipeFeel2';
 import {
-  evaluateSegment,
   shouldInvalidOnLift,
   shouldLatchSlowDrag,
   type Axis,
   type SegmentDecision,
-} from './swipeSegment';
+} from './swipeAxis';
 import { alongSpeed, createVelocityWindow, liftTailMs } from './swipeVelocity';
 
 export type SwipeInputOptions = {
@@ -46,7 +47,7 @@ export function attachSwipeInput(opts: SwipeInputOptions): SwipeHandle {
   const { target, onMove, onInvalid, isBlocked, onBackgroundAbort, onGestureCommit, getLegal } =
     opts;
   let firedThisHold = false;
-  const feelOf = () => opts.getFeel?.() ?? FEEL_DEFAULT;
+  const feelOf = () => opts.getFeel?.() ?? FEEL1_DEFAULT;
   let pid: number | null = null;
   let holding = false;
   let segX = 0;
@@ -112,45 +113,59 @@ export function attachSwipeInput(opts: SwipeInputOptions): SwipeHandle {
     axis = d.axis;
   };
 
-  const scaledInput = (fromLift = false) => {
-    const feel = feelOf();
-    const dx = lastX - segX;
-    const dy = lastY - segY;
-    const lock: Axis = axis ?? (Math.abs(dx) > Math.abs(dy) ? 1 : 0);
-    const now = performance.now();
-    const spd = vel.axisSpeed(now, fromLift ? liftTailMs(now - holdStart) : 0);
-    return {
-      dx,
-      dy,
-      axis,
-      lastDir,
-      slop: scalePx(feel.slopPx),
-      commit: scalePx(feel.commitPx),
-      axisRatio: feel.axisRatio,
-      sameDirRepeat: feel.sameDirRepeat,
-      scheme: feel.scheme,
-      speed: alongSpeed(spd, lock),
-      speedMin: scalePx(feel.speedPxS),
-      speedX: Math.abs(spd.x),
-      speedY: Math.abs(spd.y),
-      legal: getLegal?.(),
-      slowDrag,
-    };
-  };
-
   const tryCommit = (fromLift = false) => {
     if (ignoreFire) return;
     if (isBlocked?.()) return;
     if (!fromLift && !holding) return;
-    const input = scaledInput(fromLift);
-    if (!fromLift && (input.scheme ?? 1) === 2 && !slowDrag) {
-      const along = Math.max(Math.abs(input.dx), Math.abs(input.dy));
-      if (shouldLatchSlowDrag(along, input.speed, input.commit, input.speedMin)) {
-        slowDrag = true;
-        input.slowDrag = true;
+    const feel = feelOf();
+    const dx = lastX - segX;
+    const dy = lastY - segY;
+    const slop = scalePx(feel.slopPx);
+    const commit = scalePx(feel.commitPx);
+    const axisRatio = feel.axisRatio;
+
+    if (feel.scheme === 2) {
+      const lock: Axis = axis ?? (Math.abs(dx) > Math.abs(dy) ? 1 : 0);
+      const now = performance.now();
+      const spd = vel.axisSpeed(now, fromLift ? liftTailMs(now - holdStart) : 0);
+      const speed = alongSpeed(spd, lock);
+      const speedMin = scalePx(feel.speedPxS);
+      if (!fromLift && !slowDrag) {
+        const along = Math.max(Math.abs(dx), Math.abs(dy));
+        if (shouldLatchSlowDrag(along, speed, commit, speedMin)) slowDrag = true;
       }
+      applyDecision(
+        evaluateFeel2({
+          dx,
+          dy,
+          axis,
+          lastDir,
+          slop,
+          commit,
+          axisRatio,
+          speed,
+          speedMin,
+          speedX: Math.abs(spd.x),
+          speedY: Math.abs(spd.y),
+          legal: getLegal?.(),
+          slowDrag,
+        }),
+      );
+      return;
     }
-    applyDecision(evaluateSegment(input));
+
+    applyDecision(
+      evaluateFeel1({
+        dx,
+        dy,
+        axis,
+        lastDir,
+        slop,
+        commit,
+        axisRatio,
+        sameDirRepeat: feel.sameDirRepeat,
+      }),
+    );
   };
 
   const commitOnLift = () => {

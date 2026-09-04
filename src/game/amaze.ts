@@ -56,6 +56,9 @@ export type AmazeState = {
   h: number;
   /** 1 = 区域内可走 */
   floor: Uint8Array;
+  /** 1 = 已涂；已涂仍可走 */
+  painted: Uint8Array;
+  paintedCount: number;
   x: number;
   y: number;
   startX: number;
@@ -65,6 +68,9 @@ export type AmazeState = {
   seed: number;
   score: number;
   total: number;
+  moves: number;
+  par: number;
+  won: boolean;
 };
 
 function idx(x: number, y: number, w = AMAZE_W): number {
@@ -141,6 +147,62 @@ export type AmazeSlide = {
   path: { x: number; y: number }[];
 };
 
+export function dirsArePerpendicular(a: Dir, b: Dir): boolean {
+  return (a & 1) !== (b & 1);
+}
+
+/** 滑移进度：尚未踏入第一格为 -1，否则为将到达的 path 下标（不后退）。 */
+export function flightPivotIndex(elapsedMs: number, msPerCell: number, pathLen: number): number {
+  if (pathLen <= 0) return -1;
+  if (elapsedMs <= 0) return -1;
+  const step = Math.max(1, msPerCell);
+  const next = Math.ceil(elapsedMs / step) - 1;
+  return Math.min(pathLen - 1, Math.max(0, next));
+}
+
+function paintPath(s: AmazeState, cells: { x: number; y: number }[]): AmazeState {
+  const painted = s.painted.slice();
+  let n = s.paintedCount;
+  for (const c of cells) {
+    if (!isFloor(s, c.x, c.y)) continue;
+    const i = idx(c.x, c.y, s.w);
+    if (painted[i]) continue;
+    painted[i] = 1;
+    n += 1;
+  }
+  return {
+    ...s,
+    painted,
+    paintedCount: n,
+    won: n >= s.total && s.total > 0,
+  };
+}
+
+export function winBonus(par: number, moves: number): number {
+  return Math.max(1, 20 + (par - moves) * 5);
+}
+
+export function applySlide(
+  s: AmazeState,
+  from: { x: number; y: number },
+  path: { x: number; y: number }[],
+): AmazeState {
+  if (path.length === 0) {
+    return { ...s, x: from.x, y: from.y, previous: { ...from } };
+  }
+  const last = path[path.length - 1]!;
+  const painted = paintPath(s, path);
+  const moves = s.moves + 1;
+  return {
+    ...painted,
+    x: last.x,
+    y: last.y,
+    previous: { ...from },
+    moves,
+    score: painted.won && !s.won ? s.score + winBonus(s.par, moves) : s.score,
+  };
+}
+
 export function slideAmaze(s: AmazeState, x: number, y: number, dir: Dir): AmazeSlide {
   const v = VECTORS[dir];
   const path: { x: number; y: number }[] = [];
@@ -195,10 +257,15 @@ export function generateAmaze(level: number, seed: number): AmazeState {
   }
 
   const total = floorCount(floor);
+  const painted = new Uint8Array(w * h);
+  painted[idx(start.x, start.y, w)] = 1;
+  const par = estimatePar(floor, start.x, start.y, w, h);
   return {
     w,
     h,
     floor,
+    painted,
+    paintedCount: 1,
     x: start.x,
     y: start.y,
     startX: start.x,
@@ -208,7 +275,70 @@ export function generateAmaze(level: number, seed: number): AmazeState {
     seed,
     score: 0,
     total,
+    moves: 0,
+    par,
+    won: total <= 1,
   };
+}
+
+function estimatePar(floor: Uint8Array, sx: number, sy: number, w: number, h: number): number {
+  const total = floorCount(floor);
+  const painted = new Uint8Array(floor.length);
+  painted[idx(sx, sy, w)] = 1;
+  let count = 1;
+  let x = sx;
+  let y = sy;
+  let moves = 0;
+  const probe: AmazeState = {
+    w,
+    h,
+    floor,
+    painted,
+    paintedCount: 1,
+    x: sx,
+    y: sy,
+    startX: sx,
+    startY: sy,
+    previous: null,
+    level: 1,
+    seed: 0,
+    score: 0,
+    total,
+    moves: 0,
+    par: 1,
+    won: false,
+  };
+  while (count < total && moves < total * 6) {
+    let bestFresh = -1;
+    let best: AmazeSlide | null = null;
+    for (const d of [0, 1, 2, 3] as Dir[]) {
+      const sl = slideAmaze(probe, x, y, d);
+      if (!sl.moved) continue;
+      let fresh = 0;
+      for (const c of sl.path) {
+        const i = idx(c.x, c.y, w);
+        if (floor[i] && !painted[i]) fresh += 1;
+      }
+      if (fresh > bestFresh || (fresh === bestFresh && sl.cells > (best?.cells ?? -1))) {
+        bestFresh = fresh;
+        best = sl;
+      }
+    }
+    if (!best) break;
+    for (const c of best.path) {
+      const i = idx(c.x, c.y, w);
+      if (floor[i] && !painted[i]) {
+        painted[i] = 1;
+        count += 1;
+      }
+    }
+    x = best.x;
+    y = best.y;
+    probe.x = x;
+    probe.y = y;
+    moves += 1;
+  }
+  return Math.max(1, moves);
 }
 
 export function newAmazeRun(seed = Date.now() >>> 0): AmazeState {
@@ -219,6 +349,7 @@ export function cloneAmaze(s: AmazeState): AmazeState {
   return {
     ...s,
     floor: s.floor.slice(),
+    painted: s.painted.slice(),
     previous: s.previous ? { ...s.previous } : null,
   };
 }
@@ -239,18 +370,21 @@ export function moveAmaze(
   s: AmazeState,
   dir: Dir,
 ): { state: AmazeState; moved: boolean; scoreDelta: number } {
+  if (s.won) return { state: s, moved: false, scoreDelta: 0 };
   const sl = slideAmaze(s, s.x, s.y, dir);
   if (!sl.moved) return { state: s, moved: false, scoreDelta: 0 };
-  const scoreDelta = sl.cells;
-  return {
-    state: {
-      ...s,
-      x: sl.x,
-      y: sl.y,
-      previous: { x: s.x, y: s.y },
-      score: s.score + scoreDelta,
-    },
-    moved: true,
-    scoreDelta,
+  const before = s.paintedCount;
+  let next = paintPath(s, sl.path);
+  next = {
+    ...next,
+    x: sl.x,
+    y: sl.y,
+    previous: { x: s.x, y: s.y },
+    moves: s.moves + 1,
   };
+  const scoreDelta = next.paintedCount - before;
+  if (next.won && !s.won) {
+    next = { ...next, score: s.score + winBonus(s.par, next.moves) };
+  }
+  return { state: next, moved: true, scoreDelta };
 }

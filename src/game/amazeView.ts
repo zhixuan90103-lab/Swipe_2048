@@ -6,11 +6,16 @@ import {
   getAmazeMoveMs,
   type AmazeState,
 } from './amaze';
-import { CATCH_UP_MIN_MS, parseTransformXY } from './motion';
+
+
+export function amazeCellPx(x: number, y: number, cell = getAmazeCell()): { x: number; y: number } {
+  const g = AMAZE_GAP;
+  return { x: g + x * (cell + g), y: g + y * (cell + g) };
+}
 
 function translate(x: number, y: number, cell: number): string {
-  const g = AMAZE_GAP;
-  return `translate(${g + x * (cell + g)}px, ${g + y * (cell + g)}px)`;
+  const p = amazeCellPx(x, y, cell);
+  return `translate(${p.x}px, ${p.y}px)`;
 }
 
 export function mountAmaze(parent: HTMLElement): HTMLElement {
@@ -51,7 +56,12 @@ export function layoutAmaze(root: HTMLElement): void {
   root.style.height = `${AMAZE_H * cell + (AMAZE_H + 1) * gap}px`;
 }
 
-export function paintAmaze(root: HTMLElement, s: AmazeState, animate: boolean): number {
+export function paintAmaze(
+  root: HTMLElement,
+  s: AmazeState,
+  animate: boolean,
+  fromPx?: { x: number; y: number } | null,
+): number {
   layoutAmaze(root);
   const cell = getAmazeCell();
   const grid = root.querySelector('.maze-grid') as HTMLElement;
@@ -63,33 +73,38 @@ export function paintAmaze(root: HTMLElement, s: AmazeState, animate: boolean): 
       continue;
     }
     el.classList.add('maze-floor');
+    if (s.painted[i]) el.classList.add('maze-on');
   }
   const tile = root.querySelector('.maze-tile') as HTMLElement;
   tile.style.width = `${cell}px`;
   tile.style.height = `${cell}px`;
   const from = s.previous ?? { x: s.x, y: s.y };
-  const dist = Math.abs(s.x - from.x) + Math.abs(s.y - from.y);
-  const g = AMAZE_GAP;
-  const rest = { x: g + from.x * (cell + g), y: g + from.y * (cell + g) };
-  const cur = parseTransformXY(getComputedStyle(tile).transform);
-  const flying = !!cur && Math.hypot(cur.x - rest.x, cur.y - rest.y) > 2;
-  const ms = animate && dist > 0 ? dist * getAmazeMoveMs() : 0;
-  const catchMs =
-    animate && flying && dist > 0
-      ? Math.max(CATCH_UP_MIN_MS, Math.round(dist * getAmazeMoveMs() * 0.55))
-      : ms;
-  if (catchMs > 0) {
+  const dest = amazeCellPx(s.x, s.y, cell);
+  const startPx = fromPx ?? amazeCellPx(from.x, from.y, cell);
+  const step = cell + AMAZE_GAP;
+  const distCells =
+    step > 0 ? Math.hypot(dest.x - startPx.x, dest.y - startPx.y) / step : 0;
+  const ms = animate && distCells > 0.02 ? Math.round(distCells * getAmazeMoveMs()) : 0;
+  if (ms > 0) {
     tile.style.transition = 'none';
-    if (flying && cur) tile.style.transform = `translate(${cur.x}px, ${cur.y}px)`;
-    else tile.style.transform = translate(from.x, from.y, cell);
+    tile.style.transform = `translate(${startPx.x}px, ${startPx.y}px)`;
     void tile.offsetWidth;
-    tile.style.transition = `transform ${catchMs}ms linear`;
-    tile.style.transform = translate(s.x, s.y, cell);
+    tile.style.transition = `transform ${ms}ms linear`;
+    tile.style.transform = `translate(${dest.x}px, ${dest.y}px)`;
   } else {
     tile.style.transition = 'none';
     tile.style.transform = translate(s.x, s.y, cell);
   }
   const overlay = root.querySelector('.maze-overlay') as HTMLElement;
-  overlay.classList.add('hidden');
+  const msg = overlay.querySelector('.maze-over-msg') as HTMLElement | null;
+  const btn = overlay.querySelector('.maze-retry') as HTMLElement | null;
+  if (s.won) {
+    if (msg) msg.textContent = `涂满了 · ${s.moves} 步（参考 ${s.par}）`;
+    if (btn) btn.textContent = '下一关';
+    overlay.classList.remove('hidden');
+  } else {
+    overlay.classList.add('hidden');
+    if (btn) btn.textContent = '再来';
+  }
   return ms;
 }
