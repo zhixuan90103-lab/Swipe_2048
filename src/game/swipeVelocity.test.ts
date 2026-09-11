@@ -6,7 +6,10 @@ describe('velocity window', () => {
   it('样本不足为 0', () => {
     const v = createVelocityWindow();
     v.reset(0, 0, 0);
-    assert.deepEqual(v.axisSpeed(), { x: 0, y: 0 });
+    const s = v.axisSpeed();
+    assert.equal(s.x, 0);
+    assert.equal(s.y, 0);
+    assert.equal(s.ok, false);
   });
 
   it('80ms 窗内沿轴净位移 / 时间', () => {
@@ -18,6 +21,25 @@ describe('velocity window', () => {
     assert.equal(s.y, 0);
     assert.equal(alongSpeed(s, 1), 500);
     assert.equal(alongSpeed(s, 0), 0);
+    assert.equal(s.ok, true);
+  });
+
+  it('超级快甩：dt 短但位移大仍有速度', () => {
+    const v = createVelocityWindow();
+    v.reset(0, 0, 0);
+    v.push(6, 48, 0);
+    const s = v.axisSpeed();
+    assert.equal(s.ok, true);
+    assert.ok(s.x > 200);
+  });
+
+  it('短 dt 且几乎没动不算速度（防抖）', () => {
+    const v = createVelocityWindow();
+    v.reset(0, 0, 0);
+    v.push(4, 1, 0);
+    const s = v.axisSpeed();
+    assert.equal(s.ok, false);
+    assert.equal(s.x, 0);
   });
 
   it('超出窗的旧点丢掉，慢爬速度掉下来', () => {

@@ -21,12 +21,12 @@ TypeScript + Three.js WebGPU + Vite + Capacitor iOS。设计空间 **390×844**�
 | 模式 | 规则 | 默认手感 |
 |------|------|----------|
 | **2048**（`merge`） | 4×4 合并；仅 `moved` 才出新块 | **手感2 甩动** |
-| **涂色**（`solo`） | 7×9 滑到墙涂满；已涂可再走；步数 vs 参考步施压 | **手感1 距离** |
+| **贪吃蛇**（`solo`） | 13×15，滑动转向，自动一格一格走；试手感 | **手感1 距离** |
 
 输入：手写 **Pan → 离散四向**。滑距 ≠ 停点。不用系统 UISwipe。
 
 UI 对齐中文原版 2048（[UI-ORIGINAL.md](./UI-ORIGINAL.md)）。  
-**点左上角标题**切 2048 / 涂色；**菜单**新局；**设置**开当前模式的手感旋钮（两套独立）。
+**点左上角标题**切 2048 / 贪吃蛇；**菜单**新局；**设置**开当前模式的手感旋钮（两套独立）。
 
 底座约定见根目录 `AGENTS.md`。
 
@@ -44,16 +44,16 @@ UI 对齐中文原版 2048（[UI-ORIGINAL.md](./UI-ORIGINAL.md)）。
 
 | | 手感1 距离 | 手感2 甩动 |
 |--|--|--|
-| 默认模式 | 涂色 | 2048 |
+| 默认模式 | 贪吃蛇 | 2048 |
 | 出手 | 沿锁轴 ≥ `commitPx` | 沿轴 ≥ `commitPx` **且** 轴上 80ms 窗速度 ≥ `speedPxS` |
 | 慢但方向清楚 | 距离够就走 | **不走棋**。本按下一旦出现「距离已够、速度不够」即锁成慢滑，之后再加速或快抬手也不走。抬手揭指不写入速度窗，且忽略抬手前 32ms。 |
 | 按住 | 可转向；`sameDirRepeat` 可连走 | **每次按下只一步** |
 
-`pointercancel` 不断按住；**每次 `pointerdown` 开新段**。全屏 window pointer。**2048 走棋不等动画**。**涂色滑移中可 90° 转弯**（先到当前轴下一格再直角改向；同向/反向忽略）。清段只在出手/抬手。仅 `state.over` 挡 2048 输入。
+`pointercancel` 不断按住；**每次 `pointerdown` 开新段**。全屏 window pointer。**2048 走棋不等动画**。**贪吃蛇**按节拍走一格，滑动只排队 90° 转向。清段只在出手/抬手。仅 `state.over` / 蛇死亡挡输入。
 
 **系统手势与走棋互斥**（详见 [FEEL-LOOP.md](./FEEL-LOOP.md)）：按下点在顶/底安全区则本段不走棋。回桌面一次上滑（不 defer 底边）。便捷访问无公开关闭口；原生最底约 10–14pt 向下第一次吞掉、5s 内第二次给系统。本按下已走棋且 800ms 内进后台 → 撤回该步。
 
-测试：`npm test`（`swipeSegment` + `swipeVelocity` + `motion` + `hapticFeel` + `audioBatcher` + `amaze`）。
+测试：`npm test`（`swipeSegment` + `swipeVelocity` + `motion` + `hapticFeel` + `audioBatcher` + `snake`）。
 
 ---
 
@@ -71,7 +71,7 @@ UI 对齐中文原版 2048（[UI-ORIGINAL.md](./UI-ORIGINAL.md)）。
 | `src/game/game2048.ts` | 模式、HUD、走棋 |
 | `src/game/overlay.ts` | 结束层 DOM / show-hide |
 | `src/game/board.ts` | 4×4 合并 |
-| `src/game/amaze.ts` · `amazeView.ts` | 涂色盘逻辑与绘制 |
+| `src/game/snake.ts` · `snakeView.ts` | 贪吃蛇逻辑与绘制 |
 | `src/game/solo.ts` | 旧单块（现未作为默认 solo） |
 | `src/game/motion.ts` | 滑移/合并/字号纯函数 |
 | `src/game/tilePool.ts` | 棋盘 DOM 池 |
@@ -86,18 +86,18 @@ UI 对齐中文原版 2048（[UI-ORIGINAL.md](./UI-ORIGINAL.md)）。
 
 存储：`localStorage swipe2048.feel.byMode`（`merge` / `solo`）。旧键 `swipe2048.feel` 只作镜像；某模式首次进入用下表，不拿旧全局覆盖。
 
-点左上角标题切 2048 / 涂色，并加载该模式自己的手感存盘。设置面板 **不再** 切手感套；涂色只调手感1 旋钮，2048 只调手感2。两套默认与存盘互不覆盖。「恢复默认」只恢复当前模式。
+点左上角标题切 2048 / 贪吃蛇，并加载该模式自己的手感存盘。设置面板 **不再** 切手感套；贪吃蛇只调手感1，2048 只调手感2。两套默认与存盘互不覆盖。「恢复默认」只恢复当前模式。
 
 `slopPx ≥ commitPx`：锁轴帧可能立刻 fire。面板不自动纠正。
 
-### 手感1（涂色）`FEEL1_DEFAULT`
+### 手感1（贪吃蛇）`FEEL1_DEFAULT`
 
 | 键 | 默认 | 作用 |
 |----|------|------|
 | slopPx | 10 | 点按死区 |
 | commitPx | 16 | 沿锁轴出手 |
 | axisRatio | 1.55 | 主轴/副轴 |
-| tileMoveMs | 60 | 涂色每格 ms |
+| tileMoveMs | 60 | 贪吃蛇节拍（实际 ≥ 80ms） |
 | appearMs | 200 | 新块出现 |
 | inputLockMs | 10 | 动画后再锁 |
 | rearmMs | 10 | 锁开后再等 |
@@ -185,6 +185,7 @@ iOS：`AVAudioSession` `.ambient` + `.mixWithOthers`，**不要** `.duckOthers`�
 | 现象 | 处理 |
 |------|------|
 | 点了没反应 | 设计 px × (stage宽/390)；全屏 pointer |
+| 超级快滑没反应 | 短 dt 仍算速度；抬手写入速度窗；样本不足不当慢滑；cancel 补一次出手 |
 | 斜下当左 / 横判竖 | 段内锁轴；commit 只看 along |
 | 长按斜向反轴 | **出手时** consume，不要等 settle |
 | cancel 后失灵 | holding 保持；新 pointer 再 grab |

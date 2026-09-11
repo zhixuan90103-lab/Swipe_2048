@@ -20,9 +20,9 @@
 3. **手感2：先慢后快也不走**  
    本按下一旦 `along ≥ commit` 且窗速度不够，锁 `slowDrag`。抬手不写入速度窗；按下超过约 120ms 才剥末 32ms 揭指。短快甩不剥。
 
-4. **2048 走棋不等动画（A′）。涂色滑移中可 90° 转弯**  
+4. **2048 走棋不等动画（A′）。贪吃蛇节拍走格**  
    2048：`isBlocked` 仅 `merge && over`。清段只在出手瞬间和抬手。画面从当前 `transform` 接到新格，打断最短 `CATCH_UP_MIN_MS`（48ms）；打断时不播 appear/pop。  
-   **涂色：** 滑移途中只接受垂直方向：先赶到当前轴上将到达的格，再沿新向滑到墙。同向 / 反向忽略。不斜接。
+   **贪吃蛇：** 滑动只排队 90° 转向，下一拍生效；同向忽略，掉头 nudge。
 
 5. **系统手势与走棋互斥**  
    按下点在 **顶或底安全区** → 本段不 `onMove`、不 nudge。  
@@ -76,8 +76,10 @@ iOS   BridgeViewController             不 defer 底边；细带两次拦向下
 ## 手感2 速度
 
 - 80ms 窗净位移，不判向。  
-- 抬手不 `vel.push(pointerup)`；整段按下 **≥ 120ms** 才剥末 32ms。  
-- `shouldLatchSlowDrag` 只在 **pointermove** 上锁。  
+- 抬手 **会** `vel.push` 再判定（快甩常没有 move）。整段按下 **≥ 120ms** 才剥末 32ms 揭指。  
+- 窗 `dt<12ms` 且位移很小 → 速度无效，**不**锁慢滑；位移大则仍算速度。  
+- `shouldLatchSlowDrag` 只在 **pointermove** 且速度有效时锁。  
+- `pointercancel` 不断按住，但未出手时补一次抬手判定。  
 - `pointerdown` 一律新段。
 
 ---

@@ -1,4 +1,4 @@
-export type FeelScheme = 1 | 2;
+export type FeelScheme = 1 | 2 | 3;
 export type FeelMode = 'merge' | 'solo';
 
 /** 整段位移曲线。时长仍是 格数 × slideMs */
@@ -27,7 +27,7 @@ type FieldSpec = {
   unit?: string;
 };
 
-/** 手感1：距离出手（涂色）。不含甩动门槛。 */
+/** 手感1：距离出手。 */
 export type Feel1 = {
   scheme: 1;
   slopPx: number;
@@ -63,7 +63,18 @@ export type Feel2 = {
   boardScale: number;
 };
 
-export type Feel = Feel1 | Feel2;
+/** 手感3：贪吃蛇按住四向（扇区 + 滞回 + 短窗）。 */
+export type Feel3 = {
+  scheme: 3;
+  slopPx: number;
+  hystDeg: number;
+  nudgePx: number;
+  nudgeMs: number;
+  boardY: number;
+  boardScale: number;
+};
+
+export type Feel = Feel1 | Feel2 | Feel3;
 
 export const FEEL1_DEFAULT: Feel1 = {
   scheme: 1,
@@ -93,6 +104,16 @@ export const FEEL2_DEFAULT: Feel2 = {
   mergePopMs: 200,
   inputLockMs: 0,
   rearmMs: 0,
+  nudgePx: 5,
+  nudgeMs: 350,
+  boardY: 0,
+  boardScale: 1.1,
+};
+
+export const FEEL3_DEFAULT: Feel3 = {
+  scheme: 3,
+  slopPx: 4,
+  hystDeg: 14,
   nudgePx: 5,
   nudgeMs: 350,
   boardY: 0,
@@ -360,12 +381,75 @@ export const FEEL2_FIELDS: FieldSpec[] = [
   },
 ];
 
+export const FEEL3_FIELDS: FieldSpec[] = [
+  {
+    key: 'slopPx',
+    label: '转向死区',
+    why: '按住后位移少于此值不认方向。贪吃蛇默认 4。',
+    kind: 'range',
+    min: 2,
+    max: 16,
+    step: 1,
+    unit: '设计px',
+  },
+  {
+    key: 'hystDeg',
+    label: '换向滞回',
+    why: '已有朝向时，要越过对角线再偏这么多度才换向，避免斜着抖。',
+    kind: 'range',
+    min: 6,
+    max: 25,
+    step: 1,
+    unit: '°',
+  },
+  {
+    key: 'nudgePx',
+    label: '无效回弹幅度',
+    why: '短滑没认成方向时的回弹距离。',
+    kind: 'range',
+    min: 0,
+    max: 16,
+    step: 1,
+    unit: 'px',
+  },
+  {
+    key: 'nudgeMs',
+    label: '无效回弹时长',
+    why: '回弹整段时间。',
+    kind: 'range',
+    min: 40,
+    max: 400,
+    step: 10,
+    unit: 'ms',
+  },
+  {
+    key: 'boardY',
+    label: '棋盘上下',
+    why: '正数把棋盘往下移，负数往上。',
+    kind: 'range',
+    min: -80,
+    max: 160,
+    step: 2,
+    unit: '设计px',
+  },
+  {
+    key: 'boardScale',
+    label: '棋盘大小',
+    why: '整体放大或缩小棋盘。',
+    kind: 'range',
+    min: 0.9,
+    max: 1.2,
+    step: 0.02,
+    unit: '倍',
+  },
+];
+
 export function fieldsFor(mode: FeelMode): FieldSpec[] {
-  return mode === 'solo' ? FEEL1_FIELDS : FEEL2_FIELDS;
+  return mode === 'solo' ? FEEL3_FIELDS : FEEL2_FIELDS;
 }
 
 export function defaultFeelForMode(mode: FeelMode): Feel {
-  return mode === 'solo' ? { ...FEEL1_DEFAULT } : { ...FEEL2_DEFAULT };
+  return mode === 'solo' ? { ...FEEL3_DEFAULT } : { ...FEEL2_DEFAULT };
 }
 
 function clampNum(v: unknown, fallback: number, min?: number, max?: number): number {
@@ -374,7 +458,7 @@ function clampNum(v: unknown, fallback: number, min?: number, max?: number): num
   return Math.min(max ?? x, Math.max(min ?? x, x));
 }
 
-function clampFeel1(raw: Record<string, unknown>): Feel1 {
+export function clampFeel1(raw: Record<string, unknown>): Feel1 {
   const d = FEEL1_DEFAULT;
   const next: Feel1 = { ...d };
   for (const f of FEEL1_FIELDS) {
@@ -407,9 +491,21 @@ function clampFeel2(raw: Record<string, unknown>): Feel2 {
   return next;
 }
 
+function clampFeel3(raw: Record<string, unknown>): Feel3 {
+  const d = FEEL3_DEFAULT;
+  const next: Feel3 = { ...d };
+  for (const f of FEEL3_FIELDS) {
+    if (f.kind !== 'range') continue;
+    const k = f.key as Exclude<keyof Feel3, 'scheme'>;
+    next[k] = clampNum(raw[k], d[k], f.min, f.max) as never;
+  }
+  next.scheme = 3;
+  return next;
+}
+
 export function clampFeelFor(mode: FeelMode, raw: unknown): Feel {
   const rec = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {};
-  return mode === 'solo' ? clampFeel1(rec) : clampFeel2(rec);
+  return mode === 'solo' ? clampFeel3(rec) : clampFeel2(rec);
 }
 
 const KEY = 'swipe2048.feel';
@@ -446,11 +542,16 @@ export function isFeel1(feel: Feel): feel is Feel1 {
   return feel.scheme === 1;
 }
 
+export function isFeel3(feel: Feel): feel is Feel3 {
+  return feel.scheme === 3;
+}
+
 export function applyFeelCss(feel: Feel, root: HTMLElement = document.documentElement): void {
   const tileMs = feel.scheme === 1 ? feel.tileMoveMs : 70;
   const popMs = feel.scheme === 2 ? feel.mergePopMs : 120;
+  const appearMs = feel.scheme === 3 ? 200 : feel.appearMs;
   root.style.setProperty('--g-tile-ms', `${tileMs}ms`);
-  root.style.setProperty('--g-appear-ms', `${feel.appearMs}ms`);
+  root.style.setProperty('--g-appear-ms', `${appearMs}ms`);
   root.style.setProperty('--g-pop-ms', `${popMs}ms`);
   root.style.setProperty('--g-nudge-ms', `${feel.nudgeMs}ms`);
   root.style.setProperty('--g-nudge-px', `${feel.nudgePx}px`);

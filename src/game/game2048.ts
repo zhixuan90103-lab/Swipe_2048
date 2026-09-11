@@ -8,26 +8,18 @@ import {
 } from './feel';
 import { mountFeelPanel } from './feelPanel';
 import { attachSwipeInput, type SwipeHandle } from './swipeInput';
-import { maxTravelCells, parseTransformXY } from './motion';
+import { maxTravelCells } from './motion';
 import { gameSfx } from '../utils/gameSfx';
 import { gameHaptics } from '../utils/gameHaptics';
 import { nudgeBoard, paintBoard, slideDurationMs, type PaintAnim } from './view';
 import {
-  AMAZE_GAP,
-  applySlide,
-  cloneAmaze,
-  dirsArePerpendicular,
-  flightPivotIndex,
-  getAmazeCell,
-  getAmazeMoveMs,
-  moveAmaze,
-  newAmazeRun,
-  nextAmaze,
-  retryAmaze,
-  slideAmaze,
-  type AmazeState,
-} from './amaze';
-import { amazeCellPx, mountAmaze, paintAmaze } from './amazeView';
+  newSnake,
+  queueSnakeTurn,
+  snakeTickMs,
+  stepSnake,
+  type SnakeState,
+} from './snake';
+import { mountSnake, paintSnake } from './snakeView';
 import { bindOverlay, OVERLAY_HTML } from './overlay';
 
 type Mode = 'merge' | 'solo';
@@ -87,30 +79,18 @@ export function startGame2048(opts: {
     gridEl.appendChild(cell);
   }
 
-  const mazeEl = mountAmaze(boardEl.parentElement as HTMLElement);
+  const snakeEl = mountSnake(boardEl.parentElement as HTMLElement);
 
   let mode: Mode = 'merge';
   let state: BoardState = newGame();
-  let amaze: AmazeState = newAmazeRun();
+  let snake: SnakeState = newSnake();
   let feel: Feel = loadFeelFor('merge');
   let best = Number(localStorage.getItem(BEST_KEY) || '0');
   let soloBest = Number(localStorage.getItem(SOLO_BEST_KEY) || '0');
   let fxTimer = 0;
-  let flight: {
-    origin: AmazeState;
-    from: { x: number; y: number };
-    dir: Dir;
-    path: { x: number; y: number }[];
-    startedAt: number;
-    msPerCell: number;
-  } | null = null;
-  let flightTimer = 0;
-  let hopTimer = 0;
+  let snakeTick = 0;
   let swipe: SwipeHandle;
-  let pending:
-    | { mode: 'merge'; state: BoardState; best: number }
-    | { mode: 'solo'; amaze: AmazeState; best: number }
-    | null = null;
+  let pending: { state: BoardState; best: number } | null = null;
 
   const titleEl = uiRoot.querySelector('#g-title') as HTMLElement;
   const introEl = uiRoot.querySelector('#g-intro') as HTMLElement;
@@ -118,15 +98,15 @@ export function startGame2048(opts: {
 
   const hud = () => {
     const isSolo = mode === 'solo';
-    titleEl.textContent = isSolo ? '涂色' : '2048';
+    titleEl.textContent = isSolo ? '贪吃蛇' : '2048';
     titleEl.classList.toggle('g-logo-solo', isSolo);
     introEl.textContent = isSolo
-      ? `第 ${amaze.level} 关 · ${amaze.moves} / ${amaze.par} 步`
+      ? '滑动转向 · 不能掉头 · 看手感'
       : '合并这些数字以得到2048方块！';
     if (isSolo) {
-      scoreEl.textContent = String(amaze.score);
-      if (amaze.score > soloBest) {
-        soloBest = amaze.score;
+      scoreEl.textContent = String(snake.score);
+      if (snake.score > soloBest) {
+        soloBest = snake.score;
         localStorage.setItem(SOLO_BEST_KEY, String(soloBest));
       }
       bestEl.textContent = String(soloBest);
@@ -144,14 +124,14 @@ export function startGame2048(opts: {
   };
 
   const paintAnim = (): PaintAnim =>
-    feel.scheme === 1
-      ? { durationMs: feel.tileMoveMs, easing: 'linear', perCell: true }
-      : {
+    feel.scheme === 2
+      ? {
           durationMs: feel.slideMs,
           easing: SLIDE_EASE_CSS[feel.slideEase],
           perCell: true,
           mergePopMs: feel.mergePopMs,
-        };
+        }
+      : { durationMs: 70, easing: 'linear', perCell: true };
 
   const scorePool: HTMLSpanElement[] = [];
   const floatScore = (delta: number) => {
@@ -177,15 +157,51 @@ export function startGame2048(opts: {
     el.style.removeProperty('animation');
   };
 
+  const stopSnakeTick = () => {
+    window.clearTimeout(snakeTick);
+    snakeTick = 0;
+  };
+
+  const runSnakeTick = () => {
+    if (mode !== 'solo' || snake.dead) {
+      stopSnakeTick();
+      return;
+    }
+    const before = snake.score;
+    snake = stepSnake(snake);
+    paintSnake(snakeEl, snake);
+    hud();
+    if (snake.score > before) {
+      floatScore(snake.score - before);
+      gameSfx.merge(4);
+      gameHaptics.merge(4);
+    }
+    if (snake.dead) {
+      stopSnakeTick();
+      gameSfx.over(0);
+      gameHaptics.over(0);
+      return;
+    }
+    snakeTick = window.setTimeout(runSnakeTick, snakeTickMs(snake.score));
+  };
+
+  const startSnakeTick = () => {
+    stopSnakeTick();
+    if (mode !== 'solo' || snake.dead) return;
+    snakeTick = window.setTimeout(runSnakeTick, snakeTickMs(snake.score));
+  };
+
   const render = (animate: boolean) => {
     if (mode === 'solo') {
       boardEl.classList.add('hidden');
-      mazeEl.classList.remove('hidden');
-      paintAmaze(mazeEl, amaze, animate);
+      snakeEl.classList.remove('hidden');
+      paintSnake(snakeEl, snake);
       hud();
+      startSnakeTick();
       return;
     }
-    mazeEl.classList.add('hidden');
+    stopSnakeTick();
+    snakeEl.classList.add('hidden');
     boardEl.classList.remove('hidden');
     paintBoard(boardEl, state, animate, paintAnim(), feel.boardScale);
     hud();
@@ -204,119 +220,14 @@ export function startGame2048(opts: {
     gameHaptics.slide(cells);
   };
 
-  const clearFlight = () => {
-    flight = null;
-    window.clearTimeout(flightTimer);
-    window.clearTimeout(hopTimer);
-  };
-
-  const beginAmazeLeg = (
-    origin: AmazeState,
-    from: { x: number; y: number },
-    dir: Dir,
-    path: { x: number; y: number }[],
-    fromPx: { x: number; y: number } | null,
-    hopMs: number,
-  ) => {
-    window.clearTimeout(flightTimer);
-    window.clearTimeout(hopTimer);
-    flight = {
-      origin,
-      from,
-      dir,
-      path,
-      startedAt: performance.now() + Math.max(0, hopMs),
-      msPerCell: getAmazeMoveMs(),
-    };
-    const goDest = () => {
-      if (flight) flight.startedAt = performance.now();
-      const ms = paintAmaze(mazeEl, amaze, true);
-      flightTimer = window.setTimeout(() => {
-        flight = null;
-      }, ms);
-    };
-    if (fromPx && hopMs > 12) {
-      const hopState: AmazeState = {
-        ...amaze,
-        x: from.x,
-        y: from.y,
-        previous: { ...from },
-      };
-      paintAmaze(mazeEl, hopState, true, fromPx);
-      hopTimer = window.setTimeout(goDest, hopMs);
-    } else {
-      goDest();
-    }
-  };
-
-  const tryAmazeTurn = (dir: Dir): boolean => {
-    if (!flight || !dirsArePerpendicular(flight.dir, dir)) return false;
-    const elapsed = performance.now() - flight.startedAt;
-    const idx = flightPivotIndex(elapsed, flight.msPerCell, flight.path.length);
-    const pivot = idx < 0 ? flight.from : flight.path[idx]!;
-    const prefix = idx < 0 ? [] : flight.path.slice(0, idx + 1);
-    const atPivot = applySlide(cloneAmaze(flight.origin), flight.from, prefix);
-    if (atPivot.won) {
-      amaze = atPivot;
-      clearFlight();
-      paintAmaze(mazeEl, amaze, true);
-      hud();
-      gameSfx.win();
-      gameHaptics.win(80);
-      return true;
-    }
-    const sl = slideAmaze(atPivot, pivot.x, pivot.y, dir);
-    if (!sl.moved) return true;
-    const tile = mazeEl.querySelector('.maze-tile') as HTMLElement | null;
-    const fromPx = tile ? parseTransformXY(getComputedStyle(tile).transform) : null;
-    const beforePaint = atPivot.paintedCount;
-    amaze = moveAmaze(atPivot, dir).state;
-    const hop = fromPx ? amazeCellPx(pivot.x, pivot.y) : { x: 0, y: 0 };
-    const hopDist = fromPx ? Math.hypot(fromPx.x - hop.x, fromPx.y - hop.y) : 0;
-    const step = getAmazeCell() + AMAZE_GAP;
-    const hopMs = step > 0 ? Math.round((hopDist / step) * getAmazeMoveMs()) : 0;
-    mazeEl.classList.remove('g-nudge');
-    beginAmazeLeg(cloneAmaze(atPivot), pivot, dir, sl.path, fromPx, hopMs);
-    hud();
-    floatScore(amaze.paintedCount - beforePaint);
-    gameSfx.slide(Math.max(1, sl.cells));
-    gameHaptics.slide(1);
-    if (amaze.won) {
-      gameSfx.win();
-      gameHaptics.win(80);
-    }
-    return true;
-  };
-
   const tryDir = (dir: Dir) => {
     if (mode === 'solo') {
-      if (amaze.won) return;
-      if (flight) {
-        tryAmazeTurn(dir);
-        return;
-      }
-      const origin = cloneAmaze(amaze);
-      const sl = slideAmaze(amaze, amaze.x, amaze.y, dir);
-      if (!sl.moved) {
-        nudgeBoard(mazeEl, feel.nudgeMs, dir);
-        gameSfx.nudge();
-        gameHaptics.nudge(feel.nudgeMs);
-        return;
-      }
-      if (swipe?.isHolding() && !pending) {
-        pending = { mode: 'solo', amaze: origin, best: soloBest };
-      }
-      const played = moveAmaze(amaze, dir);
-      amaze = played.state;
-      mazeEl.classList.remove('g-nudge');
-      beginAmazeLeg(origin, { x: origin.x, y: origin.y }, dir, sl.path, null, 0);
-      hud();
-      floatScore(played.scoreDelta);
-      gameSfx.slide(Math.max(1, sl.cells));
-      gameHaptics.slide(1);
-      if (amaze.won) {
-        gameSfx.win();
-        gameHaptics.win(80);
+      if (snake.dead) return;
+      const before = snake.body[0]!;
+      snake = queueSnakeTurn(snake, dir);
+      if (snake.body[0] !== before && (snake.body[0]!.x !== before.x || snake.body[0]!.y !== before.y)) {
+        paintSnake(snakeEl, snake);
+        hud();
       }
       return;
     }
@@ -330,7 +241,7 @@ export function startGame2048(opts: {
       return;
     }
     if (swipe?.isHolding() && !pending) {
-      pending = { mode: 'merge', state, best };
+      pending = { state, best };
     }
     state = next;
     boardEl.classList.remove('g-nudge');
@@ -352,11 +263,11 @@ export function startGame2048(opts: {
 
   const reset = () => {
     window.clearTimeout(fxTimer);
-    clearFlight();
+    stopSnakeTick();
     gameSfx.clearPending();
     gameHaptics.clearPending();
     overlay.hide();
-    if (mode === 'solo') amaze = newAmazeRun();
+    if (mode === 'solo') snake = newSnake();
     else state = newGame();
     render(false);
   };
@@ -385,11 +296,10 @@ export function startGame2048(opts: {
     gameHaptics.ui();
     reset();
   });
-  mazeEl.querySelector('.maze-retry')!.addEventListener('click', () => {
+  snakeEl.querySelector('.snake-retry')!.addEventListener('click', () => {
     gameSfx.ui();
     gameHaptics.ui();
-    clearFlight();
-    amaze = amaze.won ? nextAmaze(amaze) : retryAmaze(amaze);
+    snake = newSnake();
     render(false);
   });
 
@@ -405,9 +315,6 @@ export function startGame2048(opts: {
     },
     feel,
     mode,
-    () => {
-      render(false);
-    },
   );
 
   settingsBtn.addEventListener('click', () => {
@@ -419,11 +326,11 @@ export function startGame2048(opts: {
   swipe = attachSwipeInput({
     target: stage,
     getFeel: () => feel,
-    isBlocked: () => (mode === 'merge' && state.over) || (mode === 'solo' && amaze.won),
+    isBlocked: () => (mode === 'merge' && state.over) || (mode === 'solo' && snake.dead),
     onMove: tryDir,
     getLegal: () => (mode === 'merge' ? (dir: Dir) => canMove(state, dir) : undefined),
     onInvalid: (dir) => {
-      nudgeBoard(mode === 'solo' ? mazeEl : boardEl, feel.nudgeMs, dir);
+      nudgeBoard(mode === 'solo' ? snakeEl : boardEl, feel.nudgeMs, dir);
       gameSfx.nudge();
       gameHaptics.nudge(feel.nudgeMs);
     },
@@ -433,18 +340,10 @@ export function startGame2048(opts: {
     onBackgroundAbort: () => {
       if (!pending) return;
       window.clearTimeout(fxTimer);
-      if (pending.mode === 'solo') {
-        amaze = pending.amaze;
-        soloBest = pending.best;
-        localStorage.setItem(SOLO_BEST_KEY, String(soloBest));
-      }
-      else {
-        state = pending.state;
-        best = pending.best;
-        localStorage.setItem(BEST_KEY, String(best));
-      }
+      state = pending.state;
+      best = pending.best;
+      localStorage.setItem(BEST_KEY, String(best));
       pending = null;
-      clearFlight();
       gameSfx.clearPending();
       gameHaptics.clearPending();
       render(false);
@@ -454,7 +353,7 @@ export function startGame2048(opts: {
   return {
     dispose: () => {
       window.clearTimeout(fxTimer);
-      clearFlight();
+      stopSnakeTick();
       gameSfx.clearPending();
       gameHaptics.clearPending();
       panel.dispose();

@@ -8,6 +8,7 @@ import type { Dir } from './board';
 import { FEEL1_DEFAULT, type Feel } from './feel';
 import { evaluateFeel1 } from './swipeFeel1';
 import { evaluateFeel2 } from './swipeFeel2';
+import { evaluateFeel3 } from './swipeFeel3';
 import {
   shouldInvalidOnLift,
   shouldLatchSlowDrag,
@@ -44,8 +45,15 @@ function isChrome(el: EventTarget | null): boolean {
 }
 
 export function attachSwipeInput(opts: SwipeInputOptions): SwipeHandle {
-  const { target, onMove, onInvalid, isBlocked, onBackgroundAbort, onGestureCommit, getLegal } =
-    opts;
+  const {
+    target,
+    onMove,
+    onInvalid,
+    isBlocked,
+    onBackgroundAbort,
+    onGestureCommit,
+    getLegal,
+  } = opts;
   let firedThisHold = false;
   const feelOf = () => opts.getFeel?.() ?? FEEL1_DEFAULT;
   let pid: number | null = null;
@@ -121,6 +129,24 @@ export function attachSwipeInput(opts: SwipeInputOptions): SwipeHandle {
     const dx = lastX - segX;
     const dy = lastY - segY;
     const slop = scalePx(feel.slopPx);
+
+    if (feel.scheme === 3) {
+      const now = performance.now();
+      const spd = vel.axisSpeed(now, fromLift ? liftTailMs(now - holdStart) : 0);
+      applyDecision(
+        evaluateFeel3({
+          dx,
+          dy,
+          lastDir,
+          slop,
+          hystDeg: feel.hystDeg,
+          winDx: spd.x * 0.08,
+          winDy: spd.y * 0.08,
+        }),
+      );
+      return;
+    }
+
     const commit = scalePx(feel.commitPx);
     const axisRatio = feel.axisRatio;
 
@@ -128,10 +154,17 @@ export function attachSwipeInput(opts: SwipeInputOptions): SwipeHandle {
       const lock: Axis = axis ?? (Math.abs(dx) > Math.abs(dy) ? 1 : 0);
       const now = performance.now();
       const spd = vel.axisSpeed(now, fromLift ? liftTailMs(now - holdStart) : 0);
-      const speed = alongSpeed(spd, lock);
       const speedMin = scalePx(feel.speedPxS);
-      if (!fromLift && !slowDrag) {
-        const along = Math.max(Math.abs(dx), Math.abs(dy));
+      const along = Math.max(Math.abs(dx), Math.abs(dy));
+      let speed = alongSpeed(spd, lock);
+      let speedX = Math.abs(spd.x);
+      let speedY = Math.abs(spd.y);
+      if (!spd.ok && fromLift && along >= commit) {
+        speed = speedMin;
+        speedX = lock === 1 ? speedMin : 0;
+        speedY = lock === 0 ? speedMin : 0;
+      }
+      if (!fromLift && !slowDrag && spd.ok) {
         if (shouldLatchSlowDrag(along, speed, commit, speedMin)) slowDrag = true;
       }
       applyDecision(
@@ -145,8 +178,8 @@ export function attachSwipeInput(opts: SwipeInputOptions): SwipeHandle {
           axisRatio,
           speed,
           speedMin,
-          speedX: Math.abs(spd.x),
-          speedY: Math.abs(spd.y),
+          speedX,
+          speedY,
           legal: getLegal?.(),
           slowDrag,
         }),
@@ -170,7 +203,12 @@ export function attachSwipeInput(opts: SwipeInputOptions): SwipeHandle {
 
   const commitOnLift = () => {
     if (ignoreFire) return;
+    vel.push(performance.now(), lastX, lastY);
     const feel = feelOf();
+    if (feel.scheme === 3) {
+      tryCommit(true);
+      return;
+    }
     const slop = scalePx(feel.slopPx);
     const commit = scalePx(feel.commitPx);
     const dist = Math.max(Math.abs(lastX - segX), Math.abs(lastY - segY));
@@ -231,7 +269,8 @@ export function attachSwipeInput(opts: SwipeInputOptions): SwipeHandle {
       return;
     }
     consumeSegment();
-    if (holding) armRetry(feelOf().rearmMs);
+    const f = feelOf();
+    if (holding) armRetry(f.scheme === 3 ? 0 : f.rearmMs);
   };
 
   const onDown = (e: PointerEvent) => {
@@ -260,6 +299,7 @@ export function attachSwipeInput(opts: SwipeInputOptions): SwipeHandle {
 
     if (fromCancel) {
       pid = null;
+      if (!ignoreFire && !firedThisHold) commitOnLift();
       return;
     }
 

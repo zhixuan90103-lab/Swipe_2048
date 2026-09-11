@@ -6,7 +6,7 @@ import {
   type SegmentDecision,
 } from './swipeAxis';
 
-/** 手感1：距离出手。涂色默认。 */
+/** 手感1：距离出手。 */
 export type Feel1Input = {
   dx: number;
   dy: number;
